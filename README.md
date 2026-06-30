@@ -7,44 +7,20 @@ A Streamlit prototype for generating LO Taiwan monthly newsletter drafts.
 - Newsletter-style editorial layout
 - Optional top badge / header image upload
 - Article badges and article images
-- Continuous PDF export
+- PDF export
 - JPG export for email preview / inline email use
 - PNG export for higher-quality image sharing
 
-## Project structure
+## Important technical note
 
-```text
-lo-taiwan-newsletter-generator/
-├── app.py
-├── requirements.txt
-└── README.md
-```
+This version does **not** use Playwright or Chromium. Exports are rendered with Pillow, which is more stable on Streamlit Community Cloud.
 
 ## How to run locally
 
-1. Install Python.
-2. Open Terminal or Command Prompt in this folder.
-3. Install the required packages:
-
 ```bash
 pip install -r requirements.txt
-```
-
-4. Install Playwright Chromium for local PDF/JPG/PNG export:
-
-```bash
-playwright install chromium
-```
-
-5. Start the app:
-
-```bash
 streamlit run app.py
 ```
-
-## Deployment notes
-
-This app uses Playwright for PDF/JPG/PNG export. Chromium is installed on demand by the app if the browser is not already available.
 
 ## Notes
 
