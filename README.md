@@ -1,6 +1,15 @@
 # LO Taiwan Monthly Pulse Generator
 
-A prototype Streamlit tool for generating LO Taiwan monthly newsletter drafts and exporting them as a continuous PDF.
+A Streamlit prototype for generating LO Taiwan monthly newsletter drafts.
+
+## What this version supports
+
+- Newsletter-style editorial layout
+- Optional top badge / header image upload
+- Article badges and article images
+- Continuous PDF export
+- JPG export for email preview / inline email use
+- PNG export for higher-quality image sharing
 
 ## Project structure
 
@@ -8,6 +17,7 @@ A prototype Streamlit tool for generating LO Taiwan monthly newsletter drafts an
 lo-taiwan-newsletter-generator/
 ├── app.py
 ├── requirements.txt
+├── packages.txt
 └── README.md
 ```
 
@@ -21,7 +31,7 @@ lo-taiwan-newsletter-generator/
 pip install -r requirements.txt
 ```
 
-4. Install Playwright Chromium for PDF export:
+4. Install Playwright Chromium for local PDF/JPG/PNG export:
 
 ```bash
 playwright install chromium
@@ -33,12 +43,10 @@ playwright install chromium
 streamlit run app.py
 ```
 
+## Deployment notes
+
+This app uses Playwright for PDF/JPG/PNG export. On Streamlit Community Cloud, `packages.txt` is included so Chromium can be installed by the deployment environment.
+
 ## Notes
 
 This is a prototype tool. Please avoid uploading confidential or sensitive company information during testing.
-
-The PDF export feature uses Playwright. If the PDF download button fails, run:
-
-```bash
-playwright install chromium
-```
