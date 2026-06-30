@@ -3,6 +3,8 @@ import streamlit.components.v1 as components
 
 import base64
 import html
+import subprocess
+import sys
 from playwright.sync_api import sync_playwright
 
 
@@ -809,14 +811,25 @@ def generate_newsletter_html(month, issue_label, editor, sections, visual_theme,
     """
 
 
+def ensure_playwright_chromium():
+    try:
+        subprocess.run(
+            [sys.executable, "-m", "playwright", "install", "chromium"],
+            check=True,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            text=True
+        )
+    except Exception:
+        pass
+
+
 def launch_chromium(playwright):
     try:
         return playwright.chromium.launch(args=["--no-sandbox"])
     except Exception:
-        return playwright.chromium.launch(
-            executable_path="/usr/bin/chromium",
-            args=["--no-sandbox"]
-        )
+        ensure_playwright_chromium()
+        return playwright.chromium.launch(args=["--no-sandbox"])
 
 
 def html_to_pdf_bytes(newsletter_html):

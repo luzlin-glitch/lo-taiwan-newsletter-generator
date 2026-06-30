@@ -17,7 +17,6 @@ A Streamlit prototype for generating LO Taiwan monthly newsletter drafts.
 lo-taiwan-newsletter-generator/
 ├── app.py
 ├── requirements.txt
-├── packages.txt
 └── README.md
 ```
 
@@ -45,7 +44,7 @@ streamlit run app.py
 
 ## Deployment notes
 
-This app uses Playwright for PDF/JPG/PNG export. On Streamlit Community Cloud, `packages.txt` is included so Chromium can be installed by the deployment environment.
+This app uses Playwright for PDF/JPG/PNG export. Chromium is installed on demand by the app if the browser is not already available.
 
 ## Notes
 
