@@ -3,13 +3,13 @@ import html
 import io
 import subprocess
 import sys
-from datetime import datetime
-from typing import Dict, List
+from typing import List, Dict
 
 import streamlit as st
 import streamlit.components.v1 as components
 from PIL import Image
 from playwright.sync_api import sync_playwright
+
 
 # -----------------------------
 # Page Config
@@ -21,23 +21,24 @@ st.set_page_config(
     layout="wide",
 )
 
+
 # -----------------------------
-# Style Presets
+# Color Palettes
 # -----------------------------
 
-VISUAL_THEMES = {
-    "Classic": {
+COLOR_PALETTES = {
+    "Classic · Black / Blue": {
         "accent": "#111111",
         "accent_2": "#2F5FD0",
         "accent_3": "#F59E0B",
         "accent_text": "#FFFFFF",
         "background": "#FFFFFF",
-        "soft_background": "#F4F4F4",
+        "soft_background": "#F6F6F6",
         "divider": "#D8D8D8",
         "text": "#111111",
         "muted": "#666666",
     },
-    "Energy": {
+    "Energy · Blue / Orange": {
         "accent": "#1038A8",
         "accent_2": "#FF8A00",
         "accent_3": "#C6FF00",
@@ -48,18 +49,18 @@ VISUAL_THEMES = {
         "text": "#111111",
         "muted": "#666666",
     },
-    "Milestone": {
+    "Milestone · Navy / Gold": {
         "accent": "#173B73",
         "accent_2": "#C8A24A",
         "accent_3": "#F3E6BF",
         "accent_text": "#FFFFFF",
         "background": "#FFFFFF",
-        "soft_background": "#F9F4E8",
+        "soft_background": "#FAF6EA",
         "divider": "#D8C79A",
         "text": "#111111",
         "muted": "#665F4D",
     },
-    "Field Notes": {
+    "Field Notes · Green / Earth": {
         "accent": "#184E3A",
         "accent_2": "#C96F32",
         "accent_3": "#E7C7A8",
@@ -72,48 +73,24 @@ VISUAL_THEMES = {
     },
 }
 
-COLOR_PALETTE_LABELS = {
-    "Classic": "Classic · Black / Blue",
-    "Energy": "Energy · Blue / Orange",
-    "Milestone": "Milestone · Navy / Gold",
-    "Field Notes": "Field Notes · Green / Earth",
-}
-
-COLOR_PALETTE_SWATCHES = {
-    "Classic": ["#111111", "#2F5FD0", "#F59E0B"],
-    "Energy": ["#1038A8", "#FF8A00", "#C6FF00"],
-    "Milestone": ["#173B73", "#C8A24A", "#F3E6BF"],
-    "Field Notes": ["#184E3A", "#C96F32", "#E7C7A8"],
-}
 
 NEWSLETTER_STYLES = {
     "Corporate Classic": {
         "description": "Best for formal monthly recaps, business updates, promotions, and clear office announcements.",
-        "tagline": "Structured business recap",
     },
     "Photo Digest": {
         "description": "Best for event recaps, team moments, supplier visits, and photo-heavy months.",
-        "tagline": "Visual-first monthly highlights",
     },
     "Magazine Feature": {
         "description": "Best for one major story, milestone, anniversary, or a hero topic that deserves emphasis.",
-        "tagline": "Editorial lead story layout",
     },
     "Field Report": {
         "description": "Best for supplier visits, factory observations, business trips, and field notes.",
-        "tagline": "Observation-based report digest",
     },
 }
 
-DEFAULT_BADGES = {
-    "People": "People Spotlight",
-    "Milestone": "Milestone Moment",
-    "Supplier": "From the Field",
-    "Culture": "Team Moments",
-    "Coming Up": "Next Up",
-}
-
 SECTION_STYLE_OPTIONS = ["Auto"] + list(NEWSLETTER_STYLES.keys())
+
 
 # -----------------------------
 # Playwright Setup
@@ -133,7 +110,9 @@ def ensure_playwright_chromium():
     except subprocess.CalledProcessError as e:
         return False, e.stderr or e.stdout or str(e)
 
+
 chromium_ready, chromium_error = ensure_playwright_chromium()
+
 
 # -----------------------------
 # Helper Functions
@@ -143,12 +122,6 @@ def safe_html_text(text):
     if text is None:
         return ""
     return html.escape(str(text)).replace("\n", "<br>")
-
-
-def plain_escape(text):
-    if text is None:
-        return ""
-    return html.escape(str(text))
 
 
 def image_to_base64(image_bytes):
@@ -170,28 +143,8 @@ def image_data_url(image):
     return f"data:{mime};base64,{encoded}"
 
 
-def get_badge_text(section):
-    """Deprecated: reader-facing badges are no longer shown.
-    The function is kept only for backward compatibility with older saved sections.
-    """
-    return ""
-
-
-def infer_section_template(section):
-    images = section.get("images", [])
-    text = section.get("content", "")
-    text_len = len(text.strip())
-    category = section.get("category", "")
-
-    if len(images) >= 2:
-        return "Gallery"
-    if len(images) == 1:
-        return "Feature"
-    if category == "Supplier" and text_len > 80:
-        return "Field Report"
-    if text_len <= 130:
-        return "Brief"
-    return "Text"
+def newsletter_style_class(newsletter_style):
+    return newsletter_style.lower().replace(" ", "-").replace("&", "and")
 
 
 def infer_section_style(section):
@@ -199,17 +152,39 @@ def infer_section_style(section):
     text = f"{section.get('title', '')} {section.get('content', '')}".lower()
     text_len = len(section.get("content", "").strip())
 
-    field_keywords = ["supplier", "factory", "field", "visit", "taichung", "vendor", "observation", "material"]
-    milestone_keywords = ["milestone", "anniversary", "celebrat", "turns", "promotion", "award"]
+    field_keywords = [
+        "supplier",
+        "factory",
+        "field",
+        "visit",
+        "taichung",
+        "vendor",
+        "observation",
+        "material",
+        "business update",
+    ]
+    milestone_keywords = [
+        "milestone",
+        "anniversary",
+        "celebrat",
+        "turns",
+        "promotion",
+        "award",
+        "journey",
+    ]
 
     if any(keyword in text for keyword in field_keywords):
         return "Field Report"
-    if len(images) >= 2:
+
+    if len(images) >= 4:
         return "Photo Digest"
+
+    if len(images) >= 2 and text_len <= 260:
+        return "Photo Digest"
+
     if len(images) == 1 or any(keyword in text for keyword in milestone_keywords):
         return "Magazine Feature"
-    if text_len <= 130:
-        return "Corporate Classic"
+
     return "Corporate Classic"
 
 
@@ -222,75 +197,67 @@ def get_section_style(section):
 
 def get_section_template(section, section_style):
     images = section.get("images", [])
-    base_template = infer_section_template(section)
+    text_len = len(section.get("content", "").strip())
 
     if section_style == "Corporate Classic":
-        if len(images) >= 2:
-            return "Text"
-        if len(images) == 1:
-            return "Feature"
-        return "Brief" if len(section.get("content", "").strip()) <= 130 else "Text"
+        if images:
+            return "Side Images"
+        return "Brief" if text_len <= 130 else "Text"
 
     if section_style == "Photo Digest":
         if images:
             return "Gallery"
-        return "Brief" if len(section.get("content", "").strip()) <= 130 else "Text"
+        return "Brief" if text_len <= 130 else "Text"
 
     if section_style == "Magazine Feature":
         if images:
-            return "Feature"
+            return "Side Images"
         return "Text"
 
     if section_style == "Field Report":
-        return "Field Report"
+        if images:
+            return "Side Images"
+        return "Text"
 
-    return base_template
+    if len(images) >= 3:
+        return "Gallery"
+    if len(images) in [1, 2]:
+        return "Side Images"
+    if text_len <= 130:
+        return "Brief"
+
+    return "Text"
 
 
-def create_image_figure(image, extra_class=""):
-    data_url = image_data_url(image)
+def create_image_figure(image):
     return f"""
-    <figure class="image-frame {extra_class}" style='background-image: url("{data_url}");'>
-        <img class="section-image" src="{data_url}" alt="">
+    <figure class="image-frame clean-image-frame">
+        <img class="section-image" src="{image_data_url(image)}" alt="">
     </figure>
     """
 
 
-def generate_masonry_images_html(images, layout="masonry"):
+def generate_images_html(images, layout="gallery"):
     if not images:
         return ""
 
-    if layout == "right-stack":
-        tags = "".join(create_image_figure(image, "stacked-image") for image in images[:2])
-        return f"<div class='right-image-stack'>{tags}</div>"
-
-    if layout == "small-supporting":
-        tags = "".join(create_image_figure(image, "supporting-image") for image in images)
-        return f"<div class='supporting-image-row image-count-{min(len(images), 8)}'>{tags}</div>"
-
-    if len(images) == 1:
-        return f"<div class='single-image-wrap'>{create_image_figure(images[0], 'single-image')}</div>"
+    if len(images) <= 2 or layout == "side-stack":
+        tags = "".join(create_image_figure(image) for image in images)
+        return f"""
+        <div class="side-image-stack">
+            {tags}
+        </div>
+        """
 
     tags = "".join(create_image_figure(image) for image in images)
-    return f"<div class='masonry-gallery image-count-{min(len(images), 8)}'>{tags}</div>"
-
-
-def split_section_html(section_class, header, content, images_html):
     return f"""
-    <section class="section-card {section_class}">
-        <div class="split-section-layout">
-            <div class="split-copy">
-                {header}
-                <div class="section-content">{content}</div>
-            </div>
-            <div class="split-media">
-                {images_html}
-            </div>
-        </div>
-    </section>
+    <div class="compact-gallery image-count-{min(len(images), 8)}">
+        {tags}
+    </div>
     """
 
-def generate_banner_html(month, top_banner_mode, top_banner_file, theme, newsletter_style):
+
+def generate_banner_html(month, top_banner_mode, top_banner_file, theme):
     if not top_banner_file:
         return f"""
         <section class="generated-banner fallback-banner">
@@ -302,7 +269,10 @@ def generate_banner_html(month, top_banner_mode, top_banner_file, theme, newslet
         </section>
         """
 
-    image = {"name": top_banner_file.name, "bytes": top_banner_file.getvalue()}
+    image = {
+        "name": top_banner_file.name,
+        "bytes": top_banner_file.getvalue(),
+    }
     data_url = image_data_url(image)
 
     if top_banner_mode == "Upload Ready-Made Banner":
@@ -323,115 +293,25 @@ def generate_banner_html(month, top_banner_mode, top_banner_file, theme, newslet
     </section>
     """
 
-# -----------------------------
-# Section HTML Builders
-# -----------------------------
-
-def section_common_header(section, template, theme, newsletter_style):
-    title = safe_html_text(section.get("title", ""))
-    return f"""
-    <h2 class="section-title">{title}</h2>
-    """
-
-
-def generate_section_html(section, template, theme, newsletter_style, index):
-    content = safe_html_text(section.get("content", ""))
-    images = section.get("images", [])
-    header = section_common_header(section, template, theme, newsletter_style)
-    section_class = f"style-{newsletter_style_class(newsletter_style)}"
-
-    # For 1–2 images, use a right-side vertical image stack.
-    # This keeps the text readable and makes images larger without stretching the whole card.
-    if images and len(images) <= 2 and template in ["Feature", "Gallery", "Text", "Field Report"]:
-        images_html = generate_masonry_images_html(images, layout="right-stack")
-        card_type = "split-feature-card" if template != "Field Report" else "field-report-card split-field-card"
-        return split_section_html(f"{card_type} {section_class}", header, content, images_html)
-
-    if template == "Brief":
-        images_html = generate_masonry_images_html(images, layout="small-supporting")
-        return f"""
-        <section class="section-card brief-card {section_class}">
-            {header}
-            <div class="section-content brief-content">{content}</div>
-            {images_html}
-        </section>
-        """
-
-    if template == "Feature":
-        images_html = generate_masonry_images_html(images)
-        return f"""
-        <section class="section-card feature-card {section_class}">
-            {header}
-            {images_html}
-            <div class="section-content after-image">{content}</div>
-        </section>
-        """
-
-    if template == "Gallery":
-        images_html = generate_masonry_images_html(images)
-        return f"""
-        <section class="section-card gallery-card {section_class}">
-            {header}
-            <div class="section-content gallery-intro">{content}</div>
-            {images_html}
-        </section>
-        """
-
-    if template == "Field Report":
-        images_html = generate_masonry_images_html(images)
-        if images:
-            return f"""
-            <section class="section-card field-report-card {section_class}">
-                {header}
-                <div class="field-report-layout has-media">
-                    <div class="field-report-copy">
-                        <div class="section-content">{content}</div>
-                    </div>
-                    <div class="field-report-media">
-                        {images_html}
-                    </div>
-                </div>
-            </section>
-            """
-        return f"""
-        <section class="section-card field-report-card no-media {section_class}">
-            {header}
-            <div class="section-content">{content}</div>
-        </section>
-        """
-
-    # Text default
-    images_html = generate_masonry_images_html(images, layout="small-supporting")
-    return f"""
-    <section class="section-card text-card {section_class}">
-        {header}
-        <div class="section-content">{content}</div>
-        {images_html}
-    </section>
-    """
-
-def newsletter_style_class(newsletter_style):
-    return newsletter_style.lower().replace(" ", "-").replace("&", "and")
 
 # -----------------------------
-# Newsletter HTML Rendering
+# Newsletter Builders
 # -----------------------------
 
 def build_issue_overview(sections, theme):
+    if not sections:
+        return ""
+
     items = ""
+
     for index, section in enumerate(sections, start=1):
         title = safe_html_text(section.get("title", ""))
         items += f"""
         <div class="issue-item">
             <div class="issue-number">{index}</div>
-            <div class="issue-text">
-                <div class="issue-title">{title}</div>
-            </div>
+            <div class="issue-title">{title}</div>
         </div>
         """
-
-    if not items:
-        return ""
 
     return f"""
     <section class="issue-overview">
@@ -446,37 +326,103 @@ def build_issue_overview(sections, theme):
     """
 
 
-def build_mixed_style_layout(sections, month, editor, theme):
+def generate_section_html(section, index):
+    section_style = get_section_style(section)
+    template = get_section_template(section, section_style)
+
+    style_class = newsletter_style_class(section_style)
+    title = safe_html_text(section.get("title", ""))
+    content = safe_html_text(section.get("content", ""))
+    images = section.get("images", [])
+
+    if template == "Brief":
+        return f"""
+        <section class="section-card brief-card style-{style_class}">
+            <h2 class="section-title">{title}</h2>
+            <div class="section-content brief-content">{content}</div>
+        </section>
+        """
+
+    if template == "Text":
+        return f"""
+        <section class="section-card text-card style-{style_class}">
+            <h2 class="section-title">{title}</h2>
+            <div class="section-content full-width-text">{content}</div>
+        </section>
+        """
+
+    if template == "Side Images":
+        images_html = generate_images_html(images, layout="side-stack")
+
+        return f"""
+        <section class="section-card side-layout-card style-{style_class}">
+            <div class="side-copy">
+                <h2 class="section-title">{title}</h2>
+                <div class="section-content">{content}</div>
+            </div>
+            <div class="side-media">
+                {images_html}
+            </div>
+        </section>
+        """
+
+    if template == "Gallery":
+        images_html = generate_images_html(images, layout="gallery")
+
+        return f"""
+        <section class="section-card gallery-card style-{style_class}">
+            <h2 class="section-title">{title}</h2>
+            <div class="section-content gallery-intro">{content}</div>
+            {images_html}
+        </section>
+        """
+
+    return f"""
+    <section class="section-card text-card style-{style_class}">
+        <h2 class="section-title">{title}</h2>
+        <div class="section-content full-width-text">{content}</div>
+    </section>
+    """
+
+
+def build_sections_html(sections):
     section_html = ""
+
     for index, section in enumerate(sections, start=1):
-        section_style = get_section_style(section)
-        template = get_section_template(section, section_style)
-        section_html += generate_section_html(section, template, theme, section_style, index)
-    return section_html
+        section_html += generate_section_html(section, index)
+
+    if section_html:
+        return section_html
+
+    return """
+    <section class="section-card text-card">
+        <h2 class="section-title">Your newsletter content will appear here</h2>
+        <div class="section-content">
+            Add sections from the editor panel to generate the newsletter draft.
+        </div>
+    </section>
+    """
 
 
 def generate_newsletter_html(
     month,
     editor,
     sections,
-    visual_theme,
+    color_palette,
     top_banner_mode,
     top_banner_file,
 ):
-    theme = VISUAL_THEMES[visual_theme]
-    banner_html = generate_banner_html(month, top_banner_mode, top_banner_file, theme, "Mixed Style")
+    theme = COLOR_PALETTES[color_palette]
+
+    banner_html = generate_banner_html(
+        month=month,
+        top_banner_mode=top_banner_mode,
+        top_banner_file=top_banner_file,
+        theme=theme,
+    )
+
     issue_html = build_issue_overview(sections, theme)
-    sections_html = build_mixed_style_layout(sections, month, editor, theme)
-
-    if not sections_html:
-        sections_html = """
-        <section class="section-card text-card">
-            <span class="badge">Preview</span>
-            <h2 class="section-title">Your newsletter content will appear here</h2>
-            <div class="section-content">Add sections from the editor panel to generate the newsletter draft.</div>
-        </section>
-        """
-
+    sections_html = build_sections_html(sections)
     css = generate_css(theme)
 
     return f"""
@@ -487,7 +433,7 @@ def generate_newsletter_html(
         <style>{css}</style>
     </head>
     <body>
-        <main class="page mixed-style">
+        <main class="page">
             {banner_html}
             {issue_html}
             <section class="sections-wrap">
@@ -501,306 +447,379 @@ def generate_newsletter_html(
     </html>
     """
 
+
 # -----------------------------
 # CSS
 # -----------------------------
 
 def generate_css(theme):
-    corporate_extra = f"""
-        .section-card.style-corporate-classic {{ border-radius: 4px; box-shadow: none; border-top-color: {theme['accent']}; }}
-        .section-card.style-corporate-classic .section-title {{ font-size: 24px; }}
-        .section-card.style-corporate-classic .supporting-image-row {{ grid-template-columns: repeat(3, minmax(0, 1fr)); }}
-        .section-card.style-corporate-classic .section-content {{ font-size: 13px; }}
-        .issue-style-corporate-classic {{ border-left-color: {theme['accent']}; }}
-    """
-
-    photo_extra = f"""
-        .section-card.style-photo-digest {{ padding: 18px; border-radius: 22px; border-top-color: {theme['accent_2']}; }}
-        .section-card.style-photo-digest .section-title {{ font-size: 28px; }}
-        .section-card.style-photo-digest .section-content {{ font-size: 12px; color: {theme['muted']}; }}
-        .section-card.style-photo-digest .masonry-gallery {{ column-count: 2; column-gap: 14px; }}
-        .section-card.style-photo-digest .image-frame {{ border-radius: 16px; margin-bottom: 14px; }}
-        .issue-style-photo-digest {{ border-left-color: {theme['accent_2']}; }}
-    """
-
-    magazine_extra = f"""
-        .section-card.style-magazine-feature {{ border-left: 12px solid {theme['accent_2']}; border-top-color: {theme['accent_2']}; }}
-        .section-card.style-magazine-feature.feature-card {{ display: grid; grid-template-columns: 0.92fr 1.08fr; gap: 20px; align-items: start; background: {theme['accent']}; color: white; }}
-        .section-card.style-magazine-feature.feature-card .section-title,
-        .section-card.style-magazine-feature.feature-card .section-content {{ color: white; }}
-        .section-card.style-magazine-feature.feature-card .badge {{ background: {theme['accent_2']}; color: white; }}
-        .section-card.style-magazine-feature.feature-card .masonry-gallery,
-        .section-card.style-magazine-feature.feature-card .single-image-wrap {{ grid-column: 2; grid-row: 1 / span 4; }}
-        .section-card.style-magazine-feature.feature-card .section-badge-row,
-        .section-card.style-magazine-feature.feature-card .section-title,
-        .section-card.style-magazine-feature.feature-card .section-content {{ grid-column: 1; }}
-        .section-card.style-magazine-feature .section-title {{ font-size: 34px; letter-spacing: -1px; }}
-        .issue-style-magazine-feature {{ border-left-color: {theme['accent_2']}; }}
-    """
-
-    field_extra = f"""
-        .section-card.style-field-report {{ border-radius: 0; border-left: 7px solid {theme['accent_2']}; border-top-color: {theme['accent_2']}; background: {theme['soft_background']}; }}
-        .section-card.style-field-report .section-title {{ font-size: 25px; }}
-        .section-card.style-field-report .field-report-layout {{ display: grid; grid-template-columns: 0.95fr 1.05fr; gap: 20px; }}
-        .section-card.style-field-report .field-note-label {{ color: {theme['accent_2']}; font-size: 11px; font-weight: 950; text-transform: uppercase; letter-spacing: 1px; margin-bottom: 10px; }}
-        .issue-style-field-report {{ border-left-color: {theme['accent_2']}; }}
-    """
-
     return f"""
     @page {{ margin: 0; }}
-    * {{ box-sizing: border-box; }}
-    html, body {{ margin: 0; padding: 0; background: #ffffff; color: {theme['text']}; font-family: Arial, Helvetica, sans-serif; }}
-    body {{ padding: 0; }}
-    .page {{ width: 100%; max-width: 900px; margin: 0 auto; padding: 18px 28px 22px; background: #ffffff; }}
 
-    .ready-banner, .generated-banner {{ width: 100%; height: 210px; border-radius: 20px; overflow: hidden; margin-bottom: 28px; position: relative; border: 1px solid {theme['divider']}; background: {theme['soft_background']}; }}
-    .ready-banner img {{ width: 100%; height: 100%; object-fit: contain; display: block; background: #ffffff; }}
-    .generated-banner img {{ width: 100%; height: 100%; object-fit: cover; display: block; }}
-    .fallback-banner {{ background: linear-gradient(135deg, {theme['accent']} 0%, {theme['accent_2']} 100%); }}
-    .banner-overlay {{ position: absolute; inset: 0; background: linear-gradient(90deg, rgba(0,0,0,0.72), rgba(0,0,0,0.22), rgba(0,0,0,0.05)); }}
-    .banner-content {{ position: absolute; left: 38px; bottom: 34px; color: white; }}
-    .banner-kicker {{ font-size: 48px; line-height: 0.95; font-weight: 950; letter-spacing: -1.5px; text-transform: uppercase; }}
-    .banner-title {{ margin-top: 10px; font-size: 26px; font-weight: 900; letter-spacing: 1px; text-transform: uppercase; }}
+    * {{
+        box-sizing: border-box;
+    }}
 
-    .style-intro {{ display: flex; justify-content: space-between; gap: 24px; align-items: flex-end; background: {theme['soft_background']}; border: 1px solid {theme['divider']}; border-left: 10px solid {theme['accent']}; border-radius: 18px; padding: 24px 28px; margin-bottom: 28px; }}
-    .style-kicker {{ color: {theme['accent_2']}; font-size: 11px; font-weight: 950; text-transform: uppercase; letter-spacing: 1.2px; margin-bottom: 8px; }}
-    .style-intro h1 {{ margin: 0; font-size: 32px; line-height: 1.05; letter-spacing: -0.8px; }}
-    .style-meta {{ font-size: 11px; color: {theme['muted']}; font-weight: 800; white-space: nowrap; }}
+    html, body {{
+        margin: 0;
+        padding: 0;
+        background: #ffffff;
+        color: {theme["text"]};
+        font-family: Arial, Helvetica, sans-serif;
+    }}
 
-    .issue-overview {{ margin-bottom: 28px; border-top: 2px solid {theme['accent']}; padding-top: 16px; }}
-    .issue-heading {{ font-size: 26px; margin: 0 0 5px; letter-spacing: -0.5px; }}
-    .issue-subtitle {{ color: {theme['muted']}; font-size: 12px; font-weight: 750; margin-bottom: 14px; }}
-    .issue-list {{ display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }}
-    .issue-item {{ display: grid; grid-template-columns: 34px 1fr; gap: 12px; align-items: center; background: {theme['soft_background']}; border: 1px solid {theme['divider']}; border-left: 5px solid {theme['accent']}; border-radius: 12px; padding: 13px 14px; }}
-    .issue-number {{ width: 30px; height: 30px; border-radius: 999px; background: {theme['accent']}; color: {theme['accent_text']}; display: flex; align-items: center; justify-content: center; font-size: 13px; font-weight: 950; }}
-    .issue-badge {{ font-size: 9px; color: {theme['muted']}; font-weight: 950; letter-spacing: 0.5px; text-transform: uppercase; margin-bottom: 4px; }}
-    .issue-title {{ font-size: 14px; font-weight: 950; line-height: 1.25; }}
+    body {{
+        padding: 0;
+    }}
 
-    .section-card {{ background: {theme['background']}; border: 1px solid {theme['divider']}; border-top: 6px solid {theme['accent']}; border-radius: 18px; padding: 24px 26px; margin-bottom: 24px; page-break-inside: avoid; }}
-    .section-badge-row {{ display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 10px; }}
-    .badge {{ display: inline-block; background: {theme['accent']}; color: {theme['accent_text']}; border-radius: 999px; padding: 7px 15px; font-size: 10px; font-weight: 950; letter-spacing: 0.6px; text-transform: uppercase; }}
-    .template-tag {{ display: none; }}
-    .section-title {{ font-size: 30px; font-weight: 950; line-height: 1.08; letter-spacing: -0.7px; margin: 0 0 15px; }}
-    .section-content {{ font-size: 14px; line-height: 1.58; font-weight: 500; margin: 0 0 14px; }}
-    .after-image {{ margin-top: 14px; }}
-    .gallery-intro {{ margin-bottom: 14px; }}
+    .page {{
+        width: 100%;
+        max-width: 900px;
+        margin: 0 auto;
+        padding: 18px 28px 22px;
+        background: #ffffff;
+    }}
 
-    .masonry-gallery {{ display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 14px; margin-top: 14px; align-items: start; }}
-    .masonry-gallery .image-wide {{ grid-column: span 2; }}
-    .image-frame {{ width: 100%; margin: 0; border-radius: 12px; overflow: hidden; border: 1px solid {theme['divider']}; background: #ffffff; }}
-    .section-image {{ width: 100%; height: auto; max-height: 420px; object-fit: contain; display: block; margin: 0 auto; }}
-    .masonry-gallery .image-wide .section-image {{ max-height: 280px; }}
-    .single-image-wrap .image-frame {{ max-width: 100%; }}
-    .single-image-wrap .section-image {{ max-height: 520px; }}
-    .supporting-image-row {{ display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; margin-top: 14px; align-items: start; }}
-    .supporting-image-row .image-wide {{ grid-column: span 2; }}
-    .supporting-image-row .image-frame {{ margin-bottom: 0; }}
+    .ready-banner,
+    .generated-banner {{
+        width: 100%;
+        height: 210px;
+        border-radius: 20px;
+        overflow: hidden;
+        margin-bottom: 28px;
+        position: relative;
+        border: 1px solid {theme["divider"]};
+        background: {theme["soft_background"]};
+    }}
 
-    .brief-card {{ background: {theme['soft_background']}; }}
-    .brief-card .section-title {{ font-size: 22px; margin-bottom: 8px; }}
-    .brief-content {{ font-size: 13px; }}
+    .ready-banner img {{
+        width: 100%;
+        height: 100%;
+        object-fit: contain;
+        display: block;
+        background: #ffffff;
+    }}
 
-    .footer {{ color: {theme['muted']}; font-size: 9px; line-height: 1.4; margin-top: 22px; border-top: 1px solid {theme['divider']}; padding-top: 12px; }}
+    .generated-banner img {{
+        width: 100%;
+        height: 100%;
+        object-fit: cover;
+        display: block;
+    }}
 
-    {corporate_extra}
-    {photo_extra}
-    {magazine_extra}
-    {field_extra}
+    .fallback-banner {{
+        background: linear-gradient(135deg, {theme["accent"]} 0%, {theme["accent_2"]} 100%);
+    }}
 
+    .banner-overlay {{
+        position: absolute;
+        inset: 0;
+        background: linear-gradient(
+            90deg,
+            rgba(0, 0, 0, 0.72),
+            rgba(0, 0, 0, 0.22),
+            rgba(0, 0, 0, 0.05)
+        );
+    }}
 
+    .banner-content {{
+        position: absolute;
+        left: 38px;
+        bottom: 34px;
+        color: white;
+    }}
 
-    /* v3.2 cleanup: reader labels removed, uniform image/card treatment */
-    .style-intro,
-    .section-badge-row,
-    .badge,
-    .field-note-label,
-    .issue-badge {{
-        display: none !important;
+    .banner-kicker {{
+        font-size: 48px;
+        line-height: 0.95;
+        font-weight: 950;
+        letter-spacing: -1.5px;
+        text-transform: uppercase;
+    }}
+
+    .banner-title {{
+        margin-top: 10px;
+        font-size: 26px;
+        font-weight: 900;
+        letter-spacing: 1px;
+        text-transform: uppercase;
+    }}
+
+    .issue-overview {{
+        margin-bottom: 28px;
+        border-top: 2px solid {theme["accent"]};
+        padding-top: 16px;
+    }}
+
+    .issue-heading {{
+        font-size: 26px;
+        margin: 0 0 5px;
+        letter-spacing: -0.5px;
+    }}
+
+    .issue-subtitle {{
+        color: {theme["muted"]};
+        font-size: 12px;
+        font-weight: 750;
+        margin-bottom: 14px;
+    }}
+
+    .issue-list {{
+        display: grid;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: 12px;
     }}
 
     .issue-item {{
-        border-left-color: {theme['accent']};
+        display: grid;
+        grid-template-columns: 34px 1fr;
+        gap: 12px;
+        align-items: center;
         background: #F7F7F7;
+        border: 1px solid {theme["divider"]};
+        border-left: 5px solid {theme["accent"]};
+        border-radius: 12px;
+        padding: 13px 14px;
     }}
 
-    .section-card,
-    .section-card.style-corporate-classic,
-    .section-card.style-photo-digest,
-    .section-card.style-magazine-feature,
-    .section-card.style-field-report {{
+    .issue-number {{
+        width: 30px;
+        height: 30px;
+        border-radius: 999px;
+        background: {theme["accent"]};
+        color: {theme["accent_text"]};
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 13px;
+        font-weight: 950;
+    }}
+
+    .issue-title {{
+        font-size: 14px;
+        font-weight: 950;
+        line-height: 1.25;
+    }}
+
+    .sections-wrap {{
+        width: 100%;
+    }}
+
+    .section-card {{
+        background: {theme["background"]};
+        border: 1px solid {theme["divider"]};
+        border-top: 6px solid {theme["accent_2"]};
         border-radius: 18px;
+        padding: 24px 26px;
+        margin-bottom: 24px;
+        page-break-inside: avoid;
         overflow: hidden;
     }}
 
     .section-title {{
-        margin-top: 0;
+        font-size: 30px;
+        font-weight: 950;
+        line-height: 1.08;
+        letter-spacing: -0.7px;
+        margin: 0 0 15px;
+        color: {theme["text"]};
     }}
 
-    .masonry-gallery,
-    .section-card.style-photo-digest .masonry-gallery,
-    .supporting-image-row {{
+    .section-content {{
+        font-size: 14px;
+        line-height: 1.58;
+        font-weight: 500;
+        margin: 0;
+        color: {theme["text"]};
+    }}
+
+    .gallery-intro {{
+        margin-bottom: 14px;
+        color: {theme["muted"]};
+    }}
+
+    .full-width-text {{
+        width: 100%;
+        max-width: none;
+    }}
+
+    .brief-card {{
+        background: {theme["soft_background"]};
+    }}
+
+    .brief-card .section-title {{
+        font-size: 22px;
+        margin-bottom: 8px;
+    }}
+
+    .brief-content {{
+        font-size: 13px;
+    }}
+
+    .side-layout-card {{
+        display: grid;
+        grid-template-columns: 0.95fr 1.05fr;
+        gap: 26px;
+        align-items: start;
+    }}
+
+    .side-copy {{
+        min-width: 0;
+    }}
+
+    .side-media {{
+        min-width: 0;
+    }}
+
+    .side-image-stack {{
+        display: flex;
+        flex-direction: column;
+        gap: 14px;
+    }}
+
+    .compact-gallery {{
         display: grid;
         grid-template-columns: repeat(2, minmax(0, 1fr));
         gap: 14px;
-        column-count: initial;
-        column-gap: initial;
+        margin-top: 14px;
         align-items: start;
     }}
 
-    .image-frame,
-    .section-card.style-photo-digest .image-frame {{
-        border-radius: 14px;
+    .image-frame {{
+        width: 100%;
         margin: 0;
-        background: transparent;
-        border: 1px solid {theme['divider']};
+        border-radius: 14px;
+        overflow: hidden;
+        border: 1px solid {theme["divider"]};
+        background: #ffffff;
+        position: relative;
+    }}
+
+    .image-frame::before {{
+        display: none !important;
+        content: none !important;
+    }}
+
+    .section-image {{
+        width: 100%;
         height: auto;
         display: block;
-        overflow: hidden;
-    }}
-
-    .section-image,
-    .masonry-gallery .image-wide .section-image,
-    .single-image-wrap .section-image {{
-        width: 100%;
-        height: auto;
-        max-height: none;
-        object-fit: initial;
-        display: block;
-    }}
-
-    .single-image-wrap .image-frame {{
-        height: auto;
-    }}
-
-    .section-card.style-corporate-classic .supporting-image-row {{
-        grid-template-columns: repeat(2, minmax(0, 1fr));
-    }}
-
-    .section-card.style-field-report,
-    .section-card.style-magazine-feature {{
-        border-radius: 18px;
-    }}
-
-    .section-card.style-field-report .field-report-layout.has-media {{
-        display: grid;
-        grid-template-columns: 0.95fr 1.05fr;
-        gap: 20px;
-    }}
-
-    .section-card.style-field-report.no-media .section-content,
-    .field-report-card.no-media .section-content {{
-        max-width: none;
-        width: 100%;
-        font-size: 15px;
-        line-height: 1.62;
-    }}
-
-    .field-report-media:empty {{
-        display: none;
-    }}
-
-
-    /* v3.4: color-palette naming + compact image layouts */
-    .split-section-layout {{
-        display: grid;
-        grid-template-columns: minmax(0, 1fr) 360px;
-        gap: 22px;
-        align-items: start;
-    }}
-
-    .split-copy .section-content {{
-        margin-bottom: 0;
-    }}
-
-    .right-image-stack {{
-        display: flex;
-        flex-direction: column;
-        gap: 12px;
-    }}
-
-    .right-image-stack .image-frame {{
-        height: 178px;
-    }}
-
-    .masonry-gallery,
-    .section-card.style-photo-digest .masonry-gallery,
-    .supporting-image-row {{
-        display: grid;
-        grid-template-columns: repeat(2, minmax(0, 1fr));
-        gap: 12px;
-        align-items: start;
-    }}
-
-    .masonry-gallery.image-count-5,
-    .masonry-gallery.image-count-6,
-    .masonry-gallery.image-count-7,
-    .masonry-gallery.image-count-8 {{
-        grid-template-columns: repeat(3, minmax(0, 1fr));
-    }}
-
-    .image-frame,
-    .section-card.style-photo-digest .image-frame {{
-        border-radius: 14px;
-        margin: 0;
-        background-color: #f4f4f4;
-        background-size: cover;
-        background-position: center;
-        border: 1px solid {theme['divider']};
-        height: 175px;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        overflow: hidden;
-    }}
-
-    .section-image,
-    .masonry-gallery .image-wide .section-image,
-    .single-image-wrap .section-image {{
-        width: 100%;
-        height: 100%;
-        max-height: none;
         object-fit: contain;
-        display: block;
+        position: relative;
+        z-index: 1;
+        background: #ffffff;
     }}
 
-    .single-image-wrap .image-frame {{
-        height: 320px;
+    .side-image-stack .image-frame,
+    .compact-gallery .image-frame {{
+        background: #ffffff;
     }}
 
-    .masonry-gallery.image-count-5 .image-frame,
-    .masonry-gallery.image-count-6 .image-frame,
-    .masonry-gallery.image-count-7 .image-frame,
-    .masonry-gallery.image-count-8 .image-frame {{
-        height: 150px;
+    .side-image-stack .section-image,
+    .compact-gallery .section-image {{
+        width: 100%;
+        height: auto;
+        object-fit: contain;
     }}
 
-    .field-report-media .masonry-gallery.image-count-5,
-    .field-report-media .masonry-gallery.image-count-6,
-    .field-report-media .masonry-gallery.image-count-7,
-    .field-report-media .masonry-gallery.image-count-8 {{
-        grid-template-columns: repeat(2, minmax(0, 1fr));
+    .style-corporate-classic {{
+        border-top-color: {theme["accent"]};
     }}
 
-    .field-report-media .masonry-gallery.image-count-5 .image-frame,
-    .field-report-media .masonry-gallery.image-count-6 .image-frame,
-    .field-report-media .masonry-gallery.image-count-7 .image-frame,
-    .field-report-media .masonry-gallery.image-count-8 .image-frame {{
-        height: 135px;
+    .style-corporate-classic .section-title {{
+        font-size: 28px;
     }}
 
-    @media screen {{ body {{ padding: 16px; }} }}
-    @media print {{ html, body {{ width: 100%; background: #ffffff; }} .page {{ max-width: none; padding: 18px 28px 22px; }} }}
+    .style-photo-digest {{
+        border-top-color: {theme["accent_2"]};
+        background: #ffffff;
+    }}
+
+    .style-photo-digest .section-title {{
+        font-size: 28px;
+    }}
+
+    .style-magazine-feature {{
+        border-top-color: {theme["accent_2"]};
+    }}
+
+    .style-magazine-feature.side-layout-card {{
+        background: {theme["accent"]};
+        color: white;
+    }}
+
+    .style-magazine-feature.side-layout-card .section-title,
+    .style-magazine-feature.side-layout-card .section-content {{
+        color: white;
+    }}
+
+    .style-field-report {{
+        border-top-color: {theme["accent_2"]};
+        background: {theme["soft_background"]};
+    }}
+
+    .style-field-report .section-title {{
+        font-size: 28px;
+    }}
+
+    .footer {{
+        color: {theme["muted"]};
+        font-size: 9px;
+        line-height: 1.4;
+        margin-top: 22px;
+        border-top: 1px solid {theme["divider"]};
+        padding-top: 12px;
+    }}
+
+    @media screen {{
+        body {{
+            padding: 16px;
+        }}
+    }}
+
+    @media print {{
+        html, body {{
+            width: 100%;
+            background: #ffffff;
+        }}
+
+        .page {{
+            max-width: none;
+            padding: 18px 28px 22px;
+        }}
+    }}
+
     @media screen and (max-width: 720px) {{
-        .page {{ padding: 16px; }}
-        .style-intro, .section-card.style-field-report .field-report-layout, .section-card.style-magazine-feature.feature-card, .split-section-layout {{ display: block; }}
-        .issue-list {{ grid-template-columns: 1fr; }}
-        .masonry-gallery {{ grid-template-columns: 1fr; }}
-        .masonry-gallery .image-wide {{ grid-column: span 1; }}
-        .supporting-image-row {{ grid-template-columns: 1fr; }}
-        .banner-kicker {{ font-size: 34px; }}
-        .banner-title {{ font-size: 20px; }}
+        .page {{
+            padding: 16px;
+        }}
+
+        .side-layout-card {{
+            display: block;
+        }}
+
+        .side-media {{
+            margin-top: 16px;
+        }}
+
+        .issue-list {{
+            grid-template-columns: 1fr;
+        }}
+
+        .compact-gallery {{
+            grid-template-columns: 1fr;
+        }}
+
+        .banner-kicker {{
+            font-size: 34px;
+        }}
+
+        .banner-title {{
+            font-size: 20px;
+        }}
     }}
     """
+
 
 # -----------------------------
 # Export Functions
@@ -812,8 +831,14 @@ def html_to_pdf_bytes(newsletter_html):
             headless=True,
             args=["--no-sandbox", "--disable-dev-shm-usage"],
         )
-        page = browser.new_page(viewport={"width": 900, "height": 1300}, device_scale_factor=1)
+
+        page = browser.new_page(
+            viewport={"width": 900, "height": 1300},
+            device_scale_factor=1,
+        )
+
         page.set_content(newsletter_html, wait_until="networkidle")
+
         document_height = page.evaluate(
             """
             () => Math.max(
@@ -825,13 +850,21 @@ def html_to_pdf_bytes(newsletter_html):
             )
             """
         )
+
         pdf_bytes = page.pdf(
             width="900px",
             height=f"{document_height + 40}px",
             print_background=True,
-            margin={"top": "0px", "right": "0px", "bottom": "0px", "left": "0px"},
+            margin={
+                "top": "0px",
+                "right": "0px",
+                "bottom": "0px",
+                "left": "0px",
+            },
         )
+
         browser.close()
+
     return pdf_bytes
 
 
@@ -841,19 +874,29 @@ def html_to_jpg_bytes(newsletter_html):
             headless=True,
             args=["--no-sandbox", "--disable-dev-shm-usage"],
         )
-        page = browser.new_page(viewport={"width": 900, "height": 1500}, device_scale_factor=2)
+
+        page = browser.new_page(
+            viewport={"width": 900, "height": 1500},
+            device_scale_factor=2,
+        )
+
         page.set_content(newsletter_html, wait_until="networkidle")
+
         element = page.query_selector(".page")
+
         if element:
             png_bytes = element.screenshot(type="png")
         else:
             png_bytes = page.screenshot(type="png", full_page=True)
+
         browser.close()
 
     image = Image.open(io.BytesIO(png_bytes)).convert("RGB")
     jpg_buffer = io.BytesIO()
     image.save(jpg_buffer, format="JPEG", quality=95, optimize=True)
+
     return jpg_buffer.getvalue()
+
 
 # -----------------------------
 # App UI
@@ -867,55 +910,91 @@ if not chromium_ready:
     st.code(chromium_error)
     st.stop()
 
+
+# Sidebar
 st.sidebar.header("Newsletter Settings")
+
 newsletter_month = st.sidebar.text_input("Month", "June 2026")
 editor_name = st.sidebar.text_input("Editor", "Luz Lin")
-visual_theme = st.sidebar.selectbox(
+
+color_palette = st.sidebar.selectbox(
     "Color Palette",
-    ["Classic", "Energy", "Milestone", "Field Notes"],
-    format_func=lambda name: COLOR_PALETTE_LABELS[name],
-    help="This only changes the accent colors, not the section layout."
+    list(COLOR_PALETTES.keys()),
 )
-_swatches = "".join(
-    f"<span style='display:inline-block;width:28px;height:12px;border-radius:999px;background:{color};margin-right:6px;border:1px solid rgba(0,0,0,0.15);'></span>"
-    for color in COLOR_PALETTE_SWATCHES[visual_theme]
+
+palette = COLOR_PALETTES[color_palette]
+
+st.sidebar.markdown(
+    f"""
+    <div style="display:flex; gap:6px; margin:8px 0 14px;">
+        <div style="width:28px; height:16px; border-radius:4px; background:{palette['accent']};"></div>
+        <div style="width:28px; height:16px; border-radius:4px; background:{palette['accent_2']};"></div>
+        <div style="width:28px; height:16px; border-radius:4px; background:{palette['accent_3']};"></div>
+        <div style="width:28px; height:16px; border-radius:4px; background:{palette['soft_background']}; border:1px solid {palette['divider']};"></div>
+    </div>
+    """,
+    unsafe_allow_html=True,
 )
-st.sidebar.markdown(_swatches, unsafe_allow_html=True)
+
 with st.sidebar.expander("Which Newsletter Style should I use?"):
-    st.caption("You can choose a different style for each section. Select Auto if you want the app to decide based on content and images.")
+    st.caption(
+        "Each section can use its own style. Select Auto if you want the app to decide based on text and images."
+    )
+
     for style_name, style_info in NEWSLETTER_STYLES.items():
         st.markdown(f"**{style_name}**")
         st.caption(style_info["description"])
 
 st.sidebar.markdown("---")
-st.sidebar.write("Prototype Version 3.4")
-st.sidebar.caption("Color palette swatches, right-side image stacks for 1–2 images, and compact no-crop galleries.")
+st.sidebar.write("Prototype Version 3.5")
+st.sidebar.caption("Clean image backgrounds, side image layout, and section-by-section styles.")
 
+
+# Session State
 if "sections" not in st.session_state:
     st.session_state.sections = []
+
 if "form_counter" not in st.session_state:
     st.session_state.form_counter = 0
 
+
+# Banner
 with st.expander("Banner Settings", expanded=True):
     top_banner_mode = st.radio(
         "Banner Mode",
         ["Generate Banner from Background Photo", "Upload Ready-Made Banner"],
         horizontal=True,
     )
+
     top_banner_file = st.file_uploader(
         "Upload banner image or background photo",
         type=["png", "jpg", "jpeg"],
         key="top_banner_upload",
         help="Use a background photo to auto-generate a branded banner, or upload a ready-made banner.",
     )
-    if top_banner_file is not None:
-        st.image(top_banner_file, caption="Banner image preview", use_container_width=True)
 
+    if top_banner_file is not None:
+        st.image(
+            top_banner_file,
+            caption="Banner image preview",
+            use_container_width=True,
+        )
+
+
+# Input Form
 st.header("1. Add Monthly Update")
 
 with st.form(f"update_form_{st.session_state.form_counter}"):
-    title = st.text_input("Section Title", placeholder="Example: Promotions")
-    raw_content = st.text_area("Raw Content", placeholder="Paste or type the original update here...", height=160)
+    title = st.text_input(
+        "Section Title",
+        placeholder="Example: Promotions",
+    )
+
+    raw_content = st.text_area(
+        "Raw Content",
+        placeholder="Paste or type the original update here...",
+        height=160,
+    )
 
     section_newsletter_style = st.selectbox(
         "Newsletter Style for this section",
@@ -930,12 +1009,20 @@ with st.form(f"update_form_{st.session_state.form_counter}"):
     )
 
     submitted = st.form_submit_button("Add Section")
+
     if submitted:
         if title and raw_content:
             images = []
+
             if uploaded_images:
                 for uploaded_image in uploaded_images:
-                    images.append({"name": uploaded_image.name, "bytes": uploaded_image.getvalue()})
+                    images.append(
+                        {
+                            "name": uploaded_image.name,
+                            "bytes": uploaded_image.getvalue(),
+                        }
+                    )
+
             st.session_state.sections.append(
                 {
                     "title": title,
@@ -944,28 +1031,38 @@ with st.form(f"update_form_{st.session_state.form_counter}"):
                     "images": images,
                 }
             )
+
             st.session_state.form_counter += 1
             st.success("Section added successfully!")
             st.rerun()
+
         else:
             st.warning("Please enter both a title and content.")
 
+
+# Preview
 st.header("2. Newsletter Preview")
 
 if not st.session_state.sections:
     st.info("Add at least one section to generate the newsletter preview.")
+
 else:
     col1, col2 = st.columns([0.62, 1.78])
+
     with col1:
         st.subheader("Added Sections")
+
         for i, section in enumerate(st.session_state.sections):
             section_style = get_section_style(section)
             template = get_section_template(section, section_style)
+
             with st.expander(f"{i + 1}. {section['title']}"):
                 st.caption(f"Newsletter Style: {section_style} · Layout: {template}")
                 st.write(section["content"])
+
                 images = section.get("images", [])
                 st.caption(f"Images: {len(images)} uploaded" if images else "Images: None")
+
                 if st.button(f"Delete Section {i + 1}", key=f"delete_{i}"):
                     st.session_state.sections.pop(i)
                     st.rerun()
@@ -975,12 +1072,19 @@ else:
             newsletter_month,
             editor_name,
             st.session_state.sections,
-            visual_theme,
+            color_palette,
             top_banner_mode,
             top_banner_file,
         )
-        components.html(newsletter_html, height=1120, scrolling=True)
 
+        components.html(
+            newsletter_html,
+            height=1120,
+            scrolling=True,
+        )
+
+
+# Export
 st.markdown("---")
 
 if st.session_state.sections:
@@ -988,17 +1092,19 @@ if st.session_state.sections:
         newsletter_month,
         editor_name,
         st.session_state.sections,
-        visual_theme,
+        color_palette,
         top_banner_mode,
         top_banner_file,
     )
 
     pdf_col, jpg_col = st.columns(2)
+
     file_base = f"LO_Taiwan_Monthly_Pulse_{newsletter_month.replace(' ', '_')}_Mixed_Styles"
 
     with pdf_col:
         try:
             pdf_bytes = html_to_pdf_bytes(newsletter_html)
+
             st.download_button(
                 label="Download Newsletter PDF",
                 data=pdf_bytes,
@@ -1006,6 +1112,7 @@ if st.session_state.sections:
                 mime="application/pdf",
                 use_container_width=True,
             )
+
         except Exception as e:
             st.error("PDF export failed. Please make sure Playwright and Chromium are installed.")
             st.caption(str(e))
@@ -1013,6 +1120,7 @@ if st.session_state.sections:
     with jpg_col:
         try:
             jpg_bytes = html_to_jpg_bytes(newsletter_html)
+
             st.download_button(
                 label="Download Newsletter JPG",
                 data=jpg_bytes,
@@ -1020,9 +1128,11 @@ if st.session_state.sections:
                 mime="image/jpeg",
                 use_container_width=True,
             )
+
         except Exception as e:
             st.error("JPG export failed.")
             st.caption(str(e))
+
 
 if st.button("Clear All Sections"):
     st.session_state.sections = []
