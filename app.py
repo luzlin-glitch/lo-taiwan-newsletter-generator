@@ -72,6 +72,20 @@ VISUAL_THEMES = {
     },
 }
 
+COLOR_PALETTE_LABELS = {
+    "Classic": "Classic · Black / Blue",
+    "Energy": "Energy · Blue / Orange",
+    "Milestone": "Milestone · Navy / Gold",
+    "Field Notes": "Field Notes · Green / Earth",
+}
+
+COLOR_PALETTE_SWATCHES = {
+    "Classic": ["#111111", "#2F5FD0", "#F59E0B"],
+    "Energy": ["#1038A8", "#FF8A00", "#C6FF00"],
+    "Milestone": ["#173B73", "#C8A24A", "#F3E6BF"],
+    "Field Notes": ["#184E3A", "#C96F32", "#E7C7A8"],
+}
+
 NEWSLETTER_STYLES = {
     "Corporate Classic": {
         "description": "Best for formal monthly recaps, business updates, promotions, and clear office announcements.",
@@ -234,9 +248,10 @@ def get_section_template(section, section_style):
 
 
 def create_image_figure(image, extra_class=""):
+    data_url = image_data_url(image)
     return f"""
-    <figure class="image-frame {extra_class}">
-        <img class="section-image" src="{image_data_url(image)}" alt="">
+    <figure class="image-frame {extra_class}" style='background-image: url("{data_url}");'>
+        <img class="section-image" src="{data_url}" alt="">
     </figure>
     """
 
@@ -245,9 +260,13 @@ def generate_masonry_images_html(images, layout="masonry"):
     if not images:
         return ""
 
+    if layout == "right-stack":
+        tags = "".join(create_image_figure(image, "stacked-image") for image in images[:2])
+        return f"<div class='right-image-stack'>{tags}</div>"
+
     if layout == "small-supporting":
         tags = "".join(create_image_figure(image, "supporting-image") for image in images)
-        return f"<div class='supporting-image-row'>{tags}</div>"
+        return f"<div class='supporting-image-row image-count-{min(len(images), 8)}'>{tags}</div>"
 
     if len(images) == 1:
         return f"<div class='single-image-wrap'>{create_image_figure(images[0], 'single-image')}</div>"
@@ -255,6 +274,21 @@ def generate_masonry_images_html(images, layout="masonry"):
     tags = "".join(create_image_figure(image) for image in images)
     return f"<div class='masonry-gallery image-count-{min(len(images), 8)}'>{tags}</div>"
 
+
+def split_section_html(section_class, header, content, images_html):
+    return f"""
+    <section class="section-card {section_class}">
+        <div class="split-section-layout">
+            <div class="split-copy">
+                {header}
+                <div class="section-content">{content}</div>
+            </div>
+            <div class="split-media">
+                {images_html}
+            </div>
+        </div>
+    </section>
+    """
 
 def generate_banner_html(month, top_banner_mode, top_banner_file, theme, newsletter_style):
     if not top_banner_file:
@@ -304,11 +338,19 @@ def generate_section_html(section, template, theme, newsletter_style, index):
     content = safe_html_text(section.get("content", ""))
     images = section.get("images", [])
     header = section_common_header(section, template, theme, newsletter_style)
+    section_class = f"style-{newsletter_style_class(newsletter_style)}"
+
+    # For 1–2 images, use a right-side vertical image stack.
+    # This keeps the text readable and makes images larger without stretching the whole card.
+    if images and len(images) <= 2 and template in ["Feature", "Gallery", "Text", "Field Report"]:
+        images_html = generate_masonry_images_html(images, layout="right-stack")
+        card_type = "split-feature-card" if template != "Field Report" else "field-report-card split-field-card"
+        return split_section_html(f"{card_type} {section_class}", header, content, images_html)
 
     if template == "Brief":
         images_html = generate_masonry_images_html(images, layout="small-supporting")
         return f"""
-        <section class="section-card brief-card style-{newsletter_style_class(newsletter_style)}">
+        <section class="section-card brief-card {section_class}">
             {header}
             <div class="section-content brief-content">{content}</div>
             {images_html}
@@ -318,7 +360,7 @@ def generate_section_html(section, template, theme, newsletter_style, index):
     if template == "Feature":
         images_html = generate_masonry_images_html(images)
         return f"""
-        <section class="section-card feature-card style-{newsletter_style_class(newsletter_style)}">
+        <section class="section-card feature-card {section_class}">
             {header}
             {images_html}
             <div class="section-content after-image">{content}</div>
@@ -328,7 +370,7 @@ def generate_section_html(section, template, theme, newsletter_style, index):
     if template == "Gallery":
         images_html = generate_masonry_images_html(images)
         return f"""
-        <section class="section-card gallery-card style-{newsletter_style_class(newsletter_style)}">
+        <section class="section-card gallery-card {section_class}">
             {header}
             <div class="section-content gallery-intro">{content}</div>
             {images_html}
@@ -339,7 +381,7 @@ def generate_section_html(section, template, theme, newsletter_style, index):
         images_html = generate_masonry_images_html(images)
         if images:
             return f"""
-            <section class="section-card field-report-card style-{newsletter_style_class(newsletter_style)}">
+            <section class="section-card field-report-card {section_class}">
                 {header}
                 <div class="field-report-layout has-media">
                     <div class="field-report-copy">
@@ -352,7 +394,7 @@ def generate_section_html(section, template, theme, newsletter_style, index):
             </section>
             """
         return f"""
-        <section class="section-card field-report-card no-media style-{newsletter_style_class(newsletter_style)}">
+        <section class="section-card field-report-card no-media {section_class}">
             {header}
             <div class="section-content">{content}</div>
         </section>
@@ -361,13 +403,12 @@ def generate_section_html(section, template, theme, newsletter_style, index):
     # Text default
     images_html = generate_masonry_images_html(images, layout="small-supporting")
     return f"""
-    <section class="section-card text-card style-{newsletter_style_class(newsletter_style)}">
+    <section class="section-card text-card {section_class}">
         {header}
         <div class="section-content">{content}</div>
         {images_html}
     </section>
     """
-
 
 def newsletter_style_class(newsletter_style):
     return newsletter_style.lower().replace(" ", "-").replace("&", "and")
@@ -658,11 +699,100 @@ def generate_css(theme):
         display: none;
     }}
 
+
+    /* v3.4: color-palette naming + compact image layouts */
+    .split-section-layout {{
+        display: grid;
+        grid-template-columns: minmax(0, 1fr) 360px;
+        gap: 22px;
+        align-items: start;
+    }}
+
+    .split-copy .section-content {{
+        margin-bottom: 0;
+    }}
+
+    .right-image-stack {{
+        display: flex;
+        flex-direction: column;
+        gap: 12px;
+    }}
+
+    .right-image-stack .image-frame {{
+        height: 178px;
+    }}
+
+    .masonry-gallery,
+    .section-card.style-photo-digest .masonry-gallery,
+    .supporting-image-row {{
+        display: grid;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: 12px;
+        align-items: start;
+    }}
+
+    .masonry-gallery.image-count-5,
+    .masonry-gallery.image-count-6,
+    .masonry-gallery.image-count-7,
+    .masonry-gallery.image-count-8 {{
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+    }}
+
+    .image-frame,
+    .section-card.style-photo-digest .image-frame {{
+        border-radius: 14px;
+        margin: 0;
+        background-color: #f4f4f4;
+        background-size: cover;
+        background-position: center;
+        border: 1px solid {theme['divider']};
+        height: 175px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        overflow: hidden;
+    }}
+
+    .section-image,
+    .masonry-gallery .image-wide .section-image,
+    .single-image-wrap .section-image {{
+        width: 100%;
+        height: 100%;
+        max-height: none;
+        object-fit: contain;
+        display: block;
+    }}
+
+    .single-image-wrap .image-frame {{
+        height: 320px;
+    }}
+
+    .masonry-gallery.image-count-5 .image-frame,
+    .masonry-gallery.image-count-6 .image-frame,
+    .masonry-gallery.image-count-7 .image-frame,
+    .masonry-gallery.image-count-8 .image-frame {{
+        height: 150px;
+    }}
+
+    .field-report-media .masonry-gallery.image-count-5,
+    .field-report-media .masonry-gallery.image-count-6,
+    .field-report-media .masonry-gallery.image-count-7,
+    .field-report-media .masonry-gallery.image-count-8 {{
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+    }}
+
+    .field-report-media .masonry-gallery.image-count-5 .image-frame,
+    .field-report-media .masonry-gallery.image-count-6 .image-frame,
+    .field-report-media .masonry-gallery.image-count-7 .image-frame,
+    .field-report-media .masonry-gallery.image-count-8 .image-frame {{
+        height: 135px;
+    }}
+
     @media screen {{ body {{ padding: 16px; }} }}
     @media print {{ html, body {{ width: 100%; background: #ffffff; }} .page {{ max-width: none; padding: 18px 28px 22px; }} }}
     @media screen and (max-width: 720px) {{
         .page {{ padding: 16px; }}
-        .style-intro, .section-card.style-field-report .field-report-layout, .section-card.style-magazine-feature.feature-card {{ display: block; }}
+        .style-intro, .section-card.style-field-report .field-report-layout, .section-card.style-magazine-feature.feature-card, .split-section-layout {{ display: block; }}
         .issue-list {{ grid-template-columns: 1fr; }}
         .masonry-gallery {{ grid-template-columns: 1fr; }}
         .masonry-gallery .image-wide {{ grid-column: span 1; }}
@@ -740,7 +870,17 @@ if not chromium_ready:
 st.sidebar.header("Newsletter Settings")
 newsletter_month = st.sidebar.text_input("Month", "June 2026")
 editor_name = st.sidebar.text_input("Editor", "Luz Lin")
-visual_theme = st.sidebar.selectbox("Visual Theme", ["Classic", "Energy", "Milestone", "Field Notes"])
+visual_theme = st.sidebar.selectbox(
+    "Color Palette",
+    ["Classic", "Energy", "Milestone", "Field Notes"],
+    format_func=lambda name: COLOR_PALETTE_LABELS[name],
+    help="This only changes the accent colors, not the section layout."
+)
+_swatches = "".join(
+    f"<span style='display:inline-block;width:28px;height:12px;border-radius:999px;background:{color};margin-right:6px;border:1px solid rgba(0,0,0,0.15);'></span>"
+    for color in COLOR_PALETTE_SWATCHES[visual_theme]
+)
+st.sidebar.markdown(_swatches, unsafe_allow_html=True)
 with st.sidebar.expander("Which Newsletter Style should I use?"):
     st.caption("You can choose a different style for each section. Select Auto if you want the app to decide based on content and images.")
     for style_name, style_info in NEWSLETTER_STYLES.items():
@@ -748,8 +888,8 @@ with st.sidebar.expander("Which Newsletter Style should I use?"):
         st.caption(style_info["description"])
 
 st.sidebar.markdown("---")
-st.sidebar.write("Prototype Version 3.3")
-st.sidebar.caption("Natural-height image layout: no cropping and no empty image-frame margins.")
+st.sidebar.write("Prototype Version 3.4")
+st.sidebar.caption("Color palette swatches, right-side image stacks for 1–2 images, and compact no-crop galleries.")
 
 if "sections" not in st.session_state:
     st.session_state.sections = []
