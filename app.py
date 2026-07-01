@@ -603,33 +603,32 @@ def generate_css(theme):
         gap: 14px;
         column-count: initial;
         column-gap: initial;
-        align-items: stretch;
+        align-items: start;
     }}
 
     .image-frame,
     .section-card.style-photo-digest .image-frame {{
         border-radius: 14px;
         margin: 0;
-        background: #ffffff;
+        background: transparent;
         border: 1px solid {theme['divider']};
-        height: 220px;
-        display: flex;
-        align-items: center;
-        justify-content: center;
+        height: auto;
+        display: block;
+        overflow: hidden;
     }}
 
     .section-image,
     .masonry-gallery .image-wide .section-image,
     .single-image-wrap .section-image {{
         width: 100%;
-        height: 100%;
+        height: auto;
         max-height: none;
-        object-fit: contain;
+        object-fit: initial;
         display: block;
     }}
 
     .single-image-wrap .image-frame {{
-        height: 320px;
+        height: auto;
     }}
 
     .section-card.style-corporate-classic .supporting-image-row {{
@@ -749,8 +748,8 @@ with st.sidebar.expander("Which Newsletter Style should I use?"):
         st.caption(style_info["description"])
 
 st.sidebar.markdown("---")
-st.sidebar.write("Prototype Version 3.2")
-st.sidebar.caption("Simplified section editor, clean reader labels, full-width text cards, and unified non-cropping image grids.")
+st.sidebar.write("Prototype Version 3.3")
+st.sidebar.caption("Natural-height image layout: no cropping and no empty image-frame margins.")
 
 if "sections" not in st.session_state:
     st.session_state.sections = []
