@@ -99,7 +99,7 @@ DEFAULT_BADGES = {
     "Coming Up": "Next Up",
 }
 
-SECTION_TEMPLATES = ["Auto", "Brief", "Text", "Feature", "Gallery", "Field Report"]
+SECTION_STYLE_OPTIONS = ["Auto"] + list(NEWSLETTER_STYLES.keys())
 
 # -----------------------------
 # Playwright Setup
@@ -180,13 +180,56 @@ def infer_section_template(section):
     return "Text"
 
 
-def get_section_template(section, section_layout):
-    if section_layout == "Auto":
-        return infer_section_template(section)
-    manual_template = section.get("manual_template", "Auto")
-    if manual_template == "Auto":
-        return infer_section_template(section)
-    return manual_template
+def infer_section_style(section):
+    images = section.get("images", [])
+    category = section.get("category", "")
+    text_len = len(section.get("content", "").strip())
+
+    if category == "Supplier":
+        return "Field Report"
+    if len(images) >= 2:
+        return "Photo Digest"
+    if category == "Milestone" or len(images) == 1:
+        return "Magazine Feature"
+    if text_len <= 130:
+        return "Corporate Classic"
+    return "Corporate Classic"
+
+
+def get_section_style(section):
+    selected_style = section.get("newsletter_style", "Auto")
+    if selected_style == "Auto":
+        return infer_section_style(section)
+    return selected_style
+
+
+def get_section_template(section, section_style):
+    images = section.get("images", [])
+    base_template = infer_section_template(section)
+
+    if section_style == "Corporate Classic":
+        if len(images) >= 2:
+            return "Text"
+        if len(images) == 1:
+            return "Feature"
+        return "Brief" if len(section.get("content", "").strip()) <= 130 else "Text"
+
+    if section_style == "Photo Digest":
+        if images:
+            return "Gallery"
+        return "Brief" if len(section.get("content", "").strip()) <= 130 else "Text"
+
+    if section_style == "Magazine Feature":
+        if images:
+            return "Feature"
+        return "Text"
+
+    if section_style == "Field Report":
+        if section.get("category", "") == "Supplier" or images:
+            return "Field Report"
+        return "Brief" if len(section.get("content", "").strip()) <= 130 else "Text"
+
+    return base_template
 
 
 def create_image_figure(image, extra_class=""):
@@ -249,13 +292,13 @@ def generate_banner_html(month, top_banner_mode, top_banner_file, theme, newslet
 # Section HTML Builders
 # -----------------------------
 
-def section_common_header(section, template, theme):
+def section_common_header(section, template, theme, newsletter_style):
     badge = safe_html_text(get_badge_text(section))
     title = safe_html_text(section.get("title", ""))
     return f"""
     <div class="section-badge-row">
         <span class="badge">{badge}</span>
-        <span class="template-tag">{template}</span>
+        <span class="template-tag">{safe_html_text(newsletter_style)} · {template}</span>
     </div>
     <h2 class="section-title">{title}</h2>
     """
@@ -264,7 +307,7 @@ def section_common_header(section, template, theme):
 def generate_section_html(section, template, theme, newsletter_style, index):
     content = safe_html_text(section.get("content", ""))
     images = section.get("images", [])
-    header = section_common_header(section, template, theme)
+    header = section_common_header(section, template, theme, newsletter_style)
 
     if template == "Brief":
         images_html = generate_masonry_images_html(images, layout="small-supporting")
@@ -331,17 +374,18 @@ def newsletter_style_class(newsletter_style):
 # Newsletter HTML Rendering
 # -----------------------------
 
-def build_issue_overview(sections, section_layout, newsletter_style, theme):
+def build_issue_overview(sections, theme):
     items = ""
     for index, section in enumerate(sections, start=1):
-        template = get_section_template(section, section_layout)
+        section_style = get_section_style(section)
+        template = get_section_template(section, section_style)
         badge = safe_html_text(get_badge_text(section))
         title = safe_html_text(section.get("title", ""))
         items += f"""
-        <div class="issue-item">
+        <div class="issue-item issue-style-{newsletter_style_class(section_style)}">
             <div class="issue-number">{index}</div>
             <div class="issue-text">
-                <div class="issue-badge">{badge} · {template}</div>
+                <div class="issue-badge">{badge} · {safe_html_text(section_style)}</div>
                 <div class="issue-title">{title}</div>
             </div>
         </div>
@@ -350,23 +394,11 @@ def build_issue_overview(sections, section_layout, newsletter_style, theme):
     if not items:
         return ""
 
-    heading = "In This Issue"
-    subtitle = "A quick guide to this month’s key stories."
-    if newsletter_style == "Photo Digest":
-        heading = "Photo Highlights"
-        subtitle = "A visual recap of this month’s key moments."
-    elif newsletter_style == "Field Report":
-        heading = "Field Notes Overview"
-        subtitle = "A structured guide to observations, updates, and next steps."
-    elif newsletter_style == "Magazine Feature":
-        heading = "Inside This Feature"
-        subtitle = "Lead story first, followed by supporting updates."
-
     return f"""
     <section class="issue-overview">
         <div class="issue-header">
-            <h2 class="issue-heading">{heading}</h2>
-            <div class="issue-subtitle">{subtitle}</div>
+            <h2 class="issue-heading">In This Issue</h2>
+            <div class="issue-subtitle">Each section can use its own newsletter style. Auto style labels are shown for editing reference.</div>
         </div>
         <div class="issue-list">
             {items}
@@ -375,45 +407,12 @@ def build_issue_overview(sections, section_layout, newsletter_style, theme):
     """
 
 
-def build_corporate_layout(sections, month, editor, theme, section_layout):
+def build_mixed_style_layout(sections, month, editor, theme):
     section_html = ""
     for index, section in enumerate(sections, start=1):
-        template = get_section_template(section, section_layout)
-        # Corporate is more text-first: gallery images are supporting, not dominant.
-        if template == "Gallery":
-            template = "Text"
-        section_html += generate_section_html(section, template, theme, "Corporate Classic", index)
-    return section_html
-
-
-def build_photo_digest_layout(sections, month, editor, theme, section_layout):
-    section_html = ""
-    for index, section in enumerate(sections, start=1):
-        template = get_section_template(section, section_layout)
-        if section.get("images"):
-            template = "Gallery"
-        section_html += generate_section_html(section, template, theme, "Photo Digest", index)
-    return section_html
-
-
-def build_magazine_layout(sections, month, editor, theme, section_layout):
-    section_html = ""
-    for index, section in enumerate(sections, start=1):
-        template = get_section_template(section, section_layout)
-        if index == 1:
-            template = "Feature" if section.get("images") else "Text"
-            section_html += f"<div class='lead-story-label'>Lead Story</div>"
-        section_html += generate_section_html(section, template, theme, "Magazine Feature", index)
-    return section_html
-
-
-def build_field_report_layout(sections, month, editor, theme, section_layout):
-    section_html = ""
-    for index, section in enumerate(sections, start=1):
-        template = get_section_template(section, section_layout)
-        if section.get("category") == "Supplier" or section.get("images"):
-            template = "Field Report"
-        section_html += generate_section_html(section, template, theme, "Field Report", index)
+        section_style = get_section_style(section)
+        template = get_section_template(section, section_style)
+        section_html += generate_section_html(section, template, theme, section_style, index)
     return section_html
 
 
@@ -422,24 +421,13 @@ def generate_newsletter_html(
     editor,
     sections,
     visual_theme,
-    newsletter_style,
-    section_layout,
     top_banner_mode,
     top_banner_file,
 ):
     theme = VISUAL_THEMES[visual_theme]
-    style_class = newsletter_style_class(newsletter_style)
-    banner_html = generate_banner_html(month, top_banner_mode, top_banner_file, theme, newsletter_style)
-    issue_html = build_issue_overview(sections, section_layout, newsletter_style, theme)
-
-    if newsletter_style == "Photo Digest":
-        sections_html = build_photo_digest_layout(sections, month, editor, theme, section_layout)
-    elif newsletter_style == "Magazine Feature":
-        sections_html = build_magazine_layout(sections, month, editor, theme, section_layout)
-    elif newsletter_style == "Field Report":
-        sections_html = build_field_report_layout(sections, month, editor, theme, section_layout)
-    else:
-        sections_html = build_corporate_layout(sections, month, editor, theme, section_layout)
+    banner_html = generate_banner_html(month, top_banner_mode, top_banner_file, theme, "Mixed Style")
+    issue_html = build_issue_overview(sections, theme)
+    sections_html = build_mixed_style_layout(sections, month, editor, theme)
 
     if not sections_html:
         sections_html = """
@@ -450,7 +438,7 @@ def generate_newsletter_html(
         </section>
         """
 
-    css = generate_css(theme, style_class, newsletter_style)
+    css = generate_css(theme)
 
     return f"""
     <!DOCTYPE html>
@@ -460,11 +448,11 @@ def generate_newsletter_html(
         <style>{css}</style>
     </head>
     <body>
-        <main class="page {style_class}">
+        <main class="page mixed-style">
             {banner_html}
             <section class="style-intro">
                 <div>
-                    <div class="style-kicker">{safe_html_text(NEWSLETTER_STYLES[newsletter_style]['tagline'])}</div>
+                    <div class="style-kicker">Flexible section-by-section layout</div>
                     <h1>{safe_html_text(month)} Monthly Pulse</h1>
                 </div>
                 <div class="style-meta">Editor: {safe_html_text(editor)}</div>
@@ -485,52 +473,46 @@ def generate_newsletter_html(
 # CSS
 # -----------------------------
 
-def generate_css(theme, style_class, newsletter_style):
-    corporate_extra = ""
-    photo_extra = ""
-    magazine_extra = ""
-    field_extra = ""
+def generate_css(theme):
+    corporate_extra = f"""
+        .section-card.style-corporate-classic {{ border-radius: 4px; box-shadow: none; border-top-color: {theme['accent']}; }}
+        .section-card.style-corporate-classic .section-title {{ font-size: 24px; }}
+        .section-card.style-corporate-classic .supporting-image-row {{ grid-template-columns: repeat(3, minmax(0, 1fr)); }}
+        .section-card.style-corporate-classic .section-content {{ font-size: 13px; }}
+        .issue-style-corporate-classic {{ border-left-color: {theme['accent']}; }}
+    """
 
-    if newsletter_style == "Corporate Classic":
-        corporate_extra = f"""
-        .corporate-classic .section-card {{ border-radius: 4px; box-shadow: none; }}
-        .corporate-classic .section-title {{ font-size: 24px; }}
-        .corporate-classic .supporting-image-row {{ grid-template-columns: repeat(3, minmax(0, 1fr)); }}
-        .corporate-classic .section-content {{ font-size: 13px; }}
-        .corporate-classic .issue-list {{ grid-template-columns: repeat(3, minmax(0, 1fr)); }}
-        """
+    photo_extra = f"""
+        .section-card.style-photo-digest {{ padding: 18px; border-radius: 22px; border-top-color: {theme['accent_2']}; }}
+        .section-card.style-photo-digest .section-title {{ font-size: 28px; }}
+        .section-card.style-photo-digest .section-content {{ font-size: 12px; color: {theme['muted']}; }}
+        .section-card.style-photo-digest .masonry-gallery {{ column-count: 2; column-gap: 14px; }}
+        .section-card.style-photo-digest .image-frame {{ border-radius: 16px; margin-bottom: 14px; }}
+        .issue-style-photo-digest {{ border-left-color: {theme['accent_2']}; }}
+    """
 
-    if newsletter_style == "Photo Digest":
-        photo_extra = f"""
-        .photo-digest .style-intro {{ display: none; }}
-        .photo-digest .issue-overview {{ border: none; padding: 0; }}
-        .photo-digest .section-card {{ padding: 18px; border-radius: 22px; }}
-        .photo-digest .section-title {{ font-size: 28px; }}
-        .photo-digest .section-content {{ font-size: 12px; color: {theme['muted']}; }}
-        .photo-digest .masonry-gallery {{ column-count: 2; column-gap: 14px; }}
-        .photo-digest .image-frame {{ border-radius: 16px; margin-bottom: 14px; }}
-        """
+    magazine_extra = f"""
+        .section-card.style-magazine-feature {{ border-left: 12px solid {theme['accent_2']}; border-top-color: {theme['accent_2']}; }}
+        .section-card.style-magazine-feature.feature-card {{ display: grid; grid-template-columns: 0.92fr 1.08fr; gap: 20px; align-items: start; background: {theme['accent']}; color: white; }}
+        .section-card.style-magazine-feature.feature-card .section-title,
+        .section-card.style-magazine-feature.feature-card .section-content {{ color: white; }}
+        .section-card.style-magazine-feature.feature-card .badge {{ background: {theme['accent_2']}; color: white; }}
+        .section-card.style-magazine-feature.feature-card .masonry-gallery,
+        .section-card.style-magazine-feature.feature-card .single-image-wrap {{ grid-column: 2; grid-row: 1 / span 4; }}
+        .section-card.style-magazine-feature.feature-card .section-badge-row,
+        .section-card.style-magazine-feature.feature-card .section-title,
+        .section-card.style-magazine-feature.feature-card .section-content {{ grid-column: 1; }}
+        .section-card.style-magazine-feature .section-title {{ font-size: 34px; letter-spacing: -1px; }}
+        .issue-style-magazine-feature {{ border-left-color: {theme['accent_2']}; }}
+    """
 
-    if newsletter_style == "Magazine Feature":
-        magazine_extra = f"""
-        .magazine-feature .style-intro {{ background: transparent; border: none; border-left: 12px solid {theme['accent_2']}; padding: 10px 0 10px 22px; }}
-        .magazine-feature .style-intro h1 {{ font-size: 42px; text-transform: uppercase; letter-spacing: -1.3px; }}
-        .magazine-feature .lead-story-label {{ font-size: 11px; font-weight: 950; color: {theme['accent_2']}; text-transform: uppercase; letter-spacing: 1.5px; margin: 8px 0; }}
-        .magazine-feature .feature-card:first-of-type {{ display: grid; grid-template-columns: 0.9fr 1.1fr; gap: 20px; align-items: start; background: {theme['accent']}; color: white; }}
-        .magazine-feature .feature-card:first-of-type .section-title, .magazine-feature .feature-card:first-of-type .section-content {{ color: white; }}
-        .magazine-feature .feature-card:first-of-type .badge {{ background: {theme['accent_2']}; color: white; }}
-        .magazine-feature .feature-card:first-of-type .masonry-gallery, .magazine-feature .feature-card:first-of-type .single-image-wrap {{ grid-column: 2; grid-row: 1 / span 4; }}
-        .magazine-feature .feature-card:first-of-type .section-badge-row, .magazine-feature .feature-card:first-of-type .section-title, .magazine-feature .feature-card:first-of-type .section-content {{ grid-column: 1; }}
-        """
-
-    if newsletter_style == "Field Report":
-        field_extra = f"""
-        .field-report .style-intro {{ border-left: 0; border-top: 5px solid {theme['accent_2']}; background: {theme['soft_background']}; }}
-        .field-report .section-card {{ border-radius: 0; border-left: 7px solid {theme['accent_2']}; }}
-        .field-report .section-title {{ font-size: 25px; }}
-        .field-report .field-report-layout {{ display: grid; grid-template-columns: 0.95fr 1.05fr; gap: 20px; }}
-        .field-report .field-note-label {{ color: {theme['accent_2']}; font-size: 11px; font-weight: 950; text-transform: uppercase; letter-spacing: 1px; margin-bottom: 10px; }}
-        """
+    field_extra = f"""
+        .section-card.style-field-report {{ border-radius: 0; border-left: 7px solid {theme['accent_2']}; border-top-color: {theme['accent_2']}; background: {theme['soft_background']}; }}
+        .section-card.style-field-report .section-title {{ font-size: 25px; }}
+        .section-card.style-field-report .field-report-layout {{ display: grid; grid-template-columns: 0.95fr 1.05fr; gap: 20px; }}
+        .section-card.style-field-report .field-note-label {{ color: {theme['accent_2']}; font-size: 11px; font-weight: 950; text-transform: uppercase; letter-spacing: 1px; margin-bottom: 10px; }}
+        .issue-style-field-report {{ border-left-color: {theme['accent_2']}; }}
+    """
 
     return f"""
     @page {{ margin: 0; }}
@@ -593,7 +575,7 @@ def generate_css(theme, style_class, newsletter_style):
     @media print {{ html, body {{ width: 100%; background: #ffffff; }} .page {{ max-width: none; padding: 18px 28px 22px; }} }}
     @media screen and (max-width: 720px) {{
         .page {{ padding: 16px; }}
-        .style-intro, .field-report .field-report-layout, .magazine-feature .feature-card:first-of-type {{ display: block; }}
+        .style-intro, .section-card.style-field-report .field-report-layout, .section-card.style-magazine-feature.feature-card {{ display: block; }}
         .issue-list {{ grid-template-columns: 1fr; }}
         .masonry-gallery {{ column-count: 1; }}
         .supporting-image-row {{ grid-template-columns: 1fr; }}
@@ -671,17 +653,15 @@ st.sidebar.header("Newsletter Settings")
 newsletter_month = st.sidebar.text_input("Month", "June 2026")
 editor_name = st.sidebar.text_input("Editor", "Luz Lin")
 visual_theme = st.sidebar.selectbox("Visual Theme", ["Classic", "Energy", "Milestone", "Field Notes"])
-newsletter_style = st.sidebar.selectbox("Newsletter Style", list(NEWSLETTER_STYLES.keys()))
-section_layout = st.sidebar.selectbox("Section Layout", ["Auto", "Manual"])
-
 with st.sidebar.expander("Which Newsletter Style should I use?"):
+    st.caption("You can choose a different style for each section. Select Auto if you want the app to decide based on content and images.")
     for style_name, style_info in NEWSLETTER_STYLES.items():
         st.markdown(f"**{style_name}**")
         st.caption(style_info["description"])
 
 st.sidebar.markdown("---")
-st.sidebar.write("Prototype Version 2.9")
-st.sidebar.caption("Distinct Canva-style templates, masonry images, and no image cropping.")
+st.sidebar.write("Prototype Version 3.0")
+st.sidebar.caption("Section-by-section newsletter styles, masonry images, and no image cropping.")
 
 if "sections" not in st.session_state:
     st.session_state.sections = []
@@ -716,9 +696,11 @@ with st.form(f"update_form_{st.session_state.form_counter}"):
     title = st.text_input("Section Title", placeholder="Example: Promotions")
     raw_content = st.text_area("Raw Content", placeholder="Paste or type the original update here...", height=160)
 
-    manual_template = "Auto"
-    if section_layout == "Manual":
-        manual_template = st.selectbox("Section Template", SECTION_TEMPLATES)
+    section_newsletter_style = st.selectbox(
+        "Newsletter Style for this section",
+        SECTION_STYLE_OPTIONS,
+        help="Choose Auto, or select the newsletter style that best matches this section's content.",
+    )
 
     uploaded_images = st.file_uploader(
         "Upload images for this section",
@@ -739,7 +721,7 @@ with st.form(f"update_form_{st.session_state.form_counter}"):
                     "badge_label": badge_label.strip(),
                     "title": title,
                     "content": raw_content,
-                    "manual_template": manual_template,
+                    "newsletter_style": section_newsletter_style,
                     "images": images,
                 }
             )
@@ -758,10 +740,11 @@ else:
     with col1:
         st.subheader("Added Sections")
         for i, section in enumerate(st.session_state.sections):
-            template = get_section_template(section, section_layout)
+            section_style = get_section_style(section)
+            template = get_section_template(section, section_style)
             with st.expander(f"{i + 1}. {section['category']} — {section['title']}"):
                 st.caption(f"Badge: {get_badge_text(section)}")
-                st.caption(f"Template: {template}")
+                st.caption(f"Newsletter Style: {section_style} · Layout: {template}")
                 st.write(section["content"])
                 images = section.get("images", [])
                 st.caption(f"Images: {len(images)} uploaded" if images else "Images: None")
@@ -775,8 +758,6 @@ else:
             editor_name,
             st.session_state.sections,
             visual_theme,
-            newsletter_style,
-            section_layout,
             top_banner_mode,
             top_banner_file,
         )
@@ -790,14 +771,12 @@ if st.session_state.sections:
         editor_name,
         st.session_state.sections,
         visual_theme,
-        newsletter_style,
-        section_layout,
         top_banner_mode,
         top_banner_file,
     )
 
     pdf_col, jpg_col = st.columns(2)
-    file_base = f"LO_Taiwan_Monthly_Pulse_{newsletter_month.replace(' ', '_')}_{newsletter_style.replace(' ', '_')}"
+    file_base = f"LO_Taiwan_Monthly_Pulse_{newsletter_month.replace(' ', '_')}_Mixed_Styles"
 
     with pdf_col:
         try:
