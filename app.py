@@ -573,41 +573,41 @@ def generate_css(theme):
     .section-badge-row,
     .badge,
     .field-note-label,
-    .issue-badge {
+    .issue-badge {{
         display: none !important;
-    }
+    }}
 
-    .issue-item {
+    .issue-item {{
         border-left-color: {theme['accent']};
         background: #F7F7F7;
-    }
+    }}
 
     .section-card,
     .section-card.style-corporate-classic,
     .section-card.style-photo-digest,
     .section-card.style-magazine-feature,
-    .section-card.style-field-report {
+    .section-card.style-field-report {{
         border-radius: 18px;
         overflow: hidden;
-    }
+    }}
 
-    .section-title {
+    .section-title {{
         margin-top: 0;
-    }
+    }}
 
     .masonry-gallery,
     .section-card.style-photo-digest .masonry-gallery,
-    .supporting-image-row {
+    .supporting-image-row {{
         display: grid;
         grid-template-columns: repeat(2, minmax(0, 1fr));
         gap: 14px;
         column-count: initial;
         column-gap: initial;
         align-items: stretch;
-    }
+    }}
 
     .image-frame,
-    .section-card.style-photo-digest .image-frame {
+    .section-card.style-photo-digest .image-frame {{
         border-radius: 14px;
         margin: 0;
         background: #ffffff;
@@ -616,48 +616,48 @@ def generate_css(theme):
         display: flex;
         align-items: center;
         justify-content: center;
-    }
+    }}
 
     .section-image,
     .masonry-gallery .image-wide .section-image,
-    .single-image-wrap .section-image {
+    .single-image-wrap .section-image {{
         width: 100%;
         height: 100%;
         max-height: none;
         object-fit: contain;
         display: block;
-    }
+    }}
 
-    .single-image-wrap .image-frame {
+    .single-image-wrap .image-frame {{
         height: 320px;
-    }
+    }}
 
-    .section-card.style-corporate-classic .supporting-image-row {
+    .section-card.style-corporate-classic .supporting-image-row {{
         grid-template-columns: repeat(2, minmax(0, 1fr));
-    }
+    }}
 
     .section-card.style-field-report,
-    .section-card.style-magazine-feature {
+    .section-card.style-magazine-feature {{
         border-radius: 18px;
-    }
+    }}
 
-    .section-card.style-field-report .field-report-layout.has-media {
+    .section-card.style-field-report .field-report-layout.has-media {{
         display: grid;
         grid-template-columns: 0.95fr 1.05fr;
         gap: 20px;
-    }
+    }}
 
     .section-card.style-field-report.no-media .section-content,
-    .field-report-card.no-media .section-content {
+    .field-report-card.no-media .section-content {{
         max-width: none;
         width: 100%;
         font-size: 15px;
         line-height: 1.62;
-    }
+    }}
 
-    .field-report-media:empty {
+    .field-report-media:empty {{
         display: none;
-    }
+    }}
 
     @media screen {{ body {{ padding: 16px; }} }}
     @media print {{ html, body {{ width: 100%; background: #ffffff; }} .page {{ max-width: none; padding: 18px 28px 22px; }} }}
