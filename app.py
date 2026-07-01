@@ -1,4 +1,18 @@
 import streamlit as st
+import subprocess
+import sys
+from pathlib import Path
+
+def ensure_playwright_chromium():
+    chromium_path = Path.home() / ".cache" / "ms-playwright"
+    if not chromium_path.exists() or not any(chromium_path.iterdir()):
+        subprocess.run(
+            [sys.executable, "-m", "playwright", "install", "chromium"],
+            check=True
+        )
+
+ensure_playwright_chromium()
+
 import streamlit.components.v1 as components
 
 import base64
@@ -720,7 +734,10 @@ def generate_newsletter_html(month, main_theme, editor, sections, visual_theme, 
 
 def html_to_pdf_bytes(newsletter_html):
     with sync_playwright() as p:
-        browser = p.chromium.launch()
+        browser = await p.chromium.launch(
+    		headless=True,
+    	args=["--no-sandbox", "--disable-dev-shm-usage"]
+	)
 
         page = browser.new_page(
             viewport={
