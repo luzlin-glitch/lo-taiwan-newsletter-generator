@@ -382,7 +382,6 @@ def generate_banner_html(banner_mode, uploaded_banner, uploaded_background, mont
             <div class="banner-overlay">
                 <div class="banner-title">{title_text}</div>
                 <div class="banner-month">{month_text.upper()} NEWSLETTER</div>
-                <div class="banner-meta">Volume {volume_text} &nbsp; | &nbsp; Issue {issue_text}</div>
             </div>
         </section>
         """
@@ -436,12 +435,6 @@ def generate_newsletter_html(month, main_theme, editor, volume, issue, banner_mo
             .banner-overlay {{ position: relative; z-index: 2; height: 100%; padding: 28px 34px; display: flex; flex-direction: column; justify-content: center; color: #ffffff; }}
             .banner-title {{ font-size: 44px; line-height: 0.95; font-weight: 950; letter-spacing: -1.5px; text-transform: uppercase; text-shadow: 0 2px 10px rgba(0,0,0,0.25); }}
             .banner-month {{ margin-top: 12px; font-size: 24px; line-height: 1; font-weight: 900; letter-spacing: -0.4px; text-shadow: 0 2px 10px rgba(0,0,0,0.25); }}
-            .banner-meta {{ margin-top: 14px; font-size: 13px; font-weight: 850; letter-spacing: 0.2px; text-shadow: 0 2px 8px rgba(0,0,0,0.25); }}
-            .cover {{ background: {theme_style["soft_background"]}; border: 1px solid {theme_style["divider"]}; border-left: 9px solid {theme_style["accent"]}; border-radius: 16px; padding: 28px 34px; margin-bottom: 26px; }}
-            .cover-title {{ font-size: 36px; line-height: 1.05; font-weight: 950; margin: 0 0 14px 0; letter-spacing: -1px; }}
-            .cover-month {{ font-size: 15px; font-weight: 850; color: #555555; margin-bottom: 18px; }}
-            .cover-phrase {{ font-size: 16px; font-weight: 800; line-height: 1.35; margin-bottom: 16px; }}
-            .cover-meta {{ font-size: 10.5px; line-height: 1.4; color: #666666; font-weight: 700; }}
             .issue-overview {{ margin-bottom: 30px; }}
             .issue-header {{ margin-bottom: 14px; }}
             .issue-heading {{ font-size: 22px; font-weight: 950; margin: 0 0 5px 0; letter-spacing: -0.3px; }}
@@ -460,6 +453,9 @@ def generate_newsletter_html(month, main_theme, editor, volume, issue, banner_mo
             .brief-content {{ margin-top: 26px; font-size: 13px; }}
             .section-content.after-image {{ margin-top: 14px; }}
             .image-grid {{ display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 14px; margin-top: 12px; align-items: start; }}
+            .gallery-card .image-grid {{ grid-template-columns: repeat(2, minmax(0, 1fr)); }}
+            .gallery-card .image-frame {{ aspect-ratio: 16 / 10; }}
+            .gallery-card .section-image {{ width: 100%; height: 100%; object-fit: cover; }}
             .feature-image-wrap {{ margin: 8px 0 14px 0; }}
             .image-frame {{ width: 100%; margin: 0; border-radius: 12px; overflow: hidden; border: 1px solid {theme_style["divider"]}; background: transparent; }}
             .section-image {{ width: 100%; height: auto; display: block; }}
@@ -469,22 +465,16 @@ def generate_newsletter_html(month, main_theme, editor, volume, issue, banner_mo
             .footer {{ color: #666666; font-size: 9px; line-height: 1.4; margin-top: 22px; border-top: 1px solid {theme_style["divider"]}; padding-top: 12px; }}
             @media screen {{ body {{ padding: 16px; }} .page {{ max-width: 820px; }} }}
             @media print {{ html, body {{ width: 100%; background: #ffffff; }} .page {{ max-width: none; padding: 18px 28px 22px 28px; }} }}
-            @media screen and (max-width: 720px) {{ .page {{ padding: 16px; }} .top-banner {{ height: 150px; }} .banner-title {{ font-size: 34px; }} .banner-month {{ font-size: 19px; }} .cover {{ padding: 24px; }} .cover-title {{ font-size: 30px; }} .issue-list {{ grid-template-columns: 1fr; }} .image-grid {{ grid-template-columns: 1fr; }} .field-report-layout, .brief-card {{ grid-template-columns: 1fr; }} .brief-content {{ margin-top: 0; }} }}
+            @media screen and (max-width: 720px) {{ .page {{ padding: 16px; }} .top-banner {{ height: 150px; }} .banner-title {{ font-size: 34px; }} .banner-month {{ font-size: 19px; }} .issue-list {{ grid-template-columns: 1fr; }} .image-grid {{ grid-template-columns: 1fr; }} .field-report-layout, .brief-card {{ grid-template-columns: 1fr; }} .brief-content {{ margin-top: 0; }} }}
         </style>
     </head>
     <body>
         <main class="page" id="newsletter">
             {banner_html}
-            <section class="cover">
-                <h1 class="cover-title">LO Taiwan Monthly Pulse</h1>
-                <div class="cover-month">{safe_html_text(month)} Edition</div>
-                <div class="cover-phrase">{safe_html_text(main_theme or theme_style["cover_phrase"])}</div>
-                <div class="cover-meta">Editor: {safe_html_text(editor)}</div>
-            </section>
             <section class="issue-overview">
                 <div class="issue-header">
                     <h2 class="issue-heading">In This Issue</h2>
-                    <div class="issue-subtitle">A quick guide to this month’s key stories. Auto-template labels are shown for editing reference.</div>
+                    <div class="issue-subtitle">{safe_html_text(main_theme or "A quick guide to this month’s key stories.")}</div>
                 </div>
                 <div class="issue-list">{issue_items_html}</div>
             </section>
@@ -563,8 +553,8 @@ template_mode = st.sidebar.selectbox("Template Mode", ["Auto", "Manual"], help="
 theme = THEMES[visual_theme]
 st.sidebar.caption(f"Theme mood: {theme['description']}")
 st.sidebar.markdown("---")
-st.sidebar.write("Prototype Version 2.5")
-st.sidebar.caption("No AI polish. Auto templates, banner generation, PDF/JPG export.")
+st.sidebar.write("Prototype Version 2.6")
+st.sidebar.caption("Banner-led layout. Auto templates, equal gallery grid, PDF/JPG export.")
 
 
 # =========================================================
