@@ -62,7 +62,19 @@ def safe_text(value):
 
 def month_to_filename(month_text):
     cleaned = month_text.lower().replace(" ", "-").replace("/", "-")
+    cleaned = "".join(char for char in cleaned if char.isalnum() or char in ["-", "_"])
     return cleaned
+
+
+def image_to_base64(uploaded_file):
+    if uploaded_file is None:
+        return None
+
+    bytes_data = uploaded_file.getvalue()
+    encoded = base64.b64encode(bytes_data).decode("utf-8")
+    file_type = uploaded_file.type
+
+    return f"data:{file_type};base64,{encoded}"
 
 
 def render_newsletter_html(
@@ -73,6 +85,7 @@ def render_newsletter_html(
     layout_style,
     hero_title,
     hero_subtitle,
+    hero_image_data_url,
     sections,
 ):
     theme_map = {
@@ -120,14 +133,25 @@ def render_newsletter_html(
         card_padding = "18px"
         section_gap = "14px"
         body_font_size = "14px"
+        hero_image_height = "220px"
     elif layout_style == "Magazine":
         card_padding = "28px"
         section_gap = "24px"
         body_font_size = "15px"
+        hero_image_height = "300px"
     else:
         card_padding = "22px"
         section_gap = "18px"
         body_font_size = "15px"
+        hero_image_height = "260px"
+
+    hero_image_html = ""
+    if hero_image_data_url:
+        hero_image_html = f"""
+        <div class="hero-image-wrap">
+            <img src="{hero_image_data_url}" class="hero-image" alt="Newsletter visual">
+        </div>
+        """
 
     section_html = ""
 
@@ -178,6 +202,7 @@ def render_newsletter_html(
 <head>
 <meta charset="UTF-8">
 <title>LO Taiwan Monthly Pulse</title>
+
 <style>
     * {{
         box-sizing: border-box;
@@ -269,7 +294,7 @@ def render_newsletter_html(
         font-size: 42px;
         line-height: 1.05;
         letter-spacing: -0.04em;
-        max-width: 620px;
+        max-width: 650px;
     }}
 
     .hero p {{
@@ -278,8 +303,27 @@ def render_newsletter_html(
         margin: 16px 0 0;
         font-size: 16px;
         line-height: 1.6;
-        max-width: 600px;
+        max-width: 620px;
         opacity: 0.92;
+    }}
+
+    .hero-image-wrap {{
+        position: relative;
+        z-index: 2;
+        margin-top: 24px;
+        width: 100%;
+        height: {hero_image_height};
+        border-radius: 22px;
+        overflow: hidden;
+        background: rgba(255, 255, 255, 0.12);
+        border: 1px solid rgba(255, 255, 255, 0.24);
+    }}
+
+    .hero-image {{
+        display: block;
+        width: 100%;
+        height: 100%;
+        object-fit: cover;
     }}
 
     .theme-strip {{
@@ -409,6 +453,7 @@ def render_newsletter_html(
             <div class="badge">LO Taiwan Monthly Pulse · {safe_text(month)}</div>
             <h1>{safe_text(hero_title)}</h1>
             <p>{safe_text(hero_subtitle)}</p>
+            {hero_image_html}
         </section>
 
         <section class="theme-strip">
@@ -451,11 +496,14 @@ def html_to_pdf_bytes(html_content):
             headless=True,
             args=["--no-sandbox", "--disable-dev-shm-usage"],
         )
+
         page = browser.new_page(
             viewport={"width": 960, "height": 1400},
             device_scale_factor=1,
         )
+
         page.set_content(html_content, wait_until="networkidle")
+
         pdf_bytes = page.pdf(
             format="A4",
             print_background=True,
@@ -466,6 +514,7 @@ def html_to_pdf_bytes(html_content):
                 "left": "0.25in",
             },
         )
+
         browser.close()
         return pdf_bytes
 
@@ -480,13 +529,16 @@ def html_to_jpg_bytes(html_content):
             headless=True,
             args=["--no-sandbox", "--disable-dev-shm-usage"],
         )
+
         page = browser.new_page(
-            viewport={"width": 960, "height": 1600},
+            viewport={"width": 960, "height": 1700},
             device_scale_factor=2,
         )
+
         page.set_content(html_content, wait_until="networkidle")
 
         element = page.query_selector("#newsletter")
+
         if element:
             png_bytes = element.screenshot(type="png")
         else:
@@ -502,6 +554,7 @@ def html_to_jpg_bytes(html_content):
 
 def html_preview_component(html_content):
     encoded_html = base64.b64encode(html_content.encode("utf-8")).decode("utf-8")
+
     iframe_html = f"""
     <iframe
         src="data:text/html;base64,{encoded_html}"
@@ -510,6 +563,7 @@ def html_preview_component(html_content):
         style="border: 1px solid #E5E7EB; border-radius: 18px; background: white;"
     ></iframe>
     """
+
     return iframe_html
 
 
@@ -548,10 +602,12 @@ with st.sidebar:
     st.title("Newsletter Settings")
 
     month = st.text_input("Month", value="June 2026")
+
     main_theme = st.text_input(
         "Main Theme",
         value="People, culture, suppliers, and milestones",
     )
+
     editor = st.text_input("Editor", value="Luz Lin")
 
     visual_theme = st.selectbox(
@@ -576,8 +632,8 @@ with st.sidebar:
     st.caption(f"Theme mood: {theme_mood.get(visual_theme, '')}")
 
     st.divider()
-    st.caption("Prototype Version 3.0")
-    st.caption("PDF and JPG export with synchronous Playwright.")
+    st.caption("Prototype Version 3.1")
+    st.caption("PDF and JPG export with hero image upload.")
 
 
 # =========================================================
@@ -591,6 +647,9 @@ if not chromium_ready:
     st.error("Playwright Chromium installation failed.")
     st.code(chromium_error)
     st.stop()
+
+
+hero_image_data_url = None
 
 left_col, right_col = st.columns([0.95, 1.25], gap="large")
 
@@ -607,6 +666,21 @@ with left_col:
         value="A monthly snapshot of people, culture, supplier updates, and key milestones across LO Taiwan.",
         height=100,
     )
+
+    hero_image_file = st.file_uploader(
+        "Hero Image / Badge Image",
+        type=["png", "jpg", "jpeg"],
+        help="Upload the visual badge or header image for the newsletter.",
+    )
+
+    hero_image_data_url = image_to_base64(hero_image_file)
+
+    if hero_image_file is not None:
+        st.image(
+            hero_image_file,
+            caption="Uploaded hero image",
+            use_container_width=True,
+        )
 
     st.divider()
     st.subheader("Newsletter Sections")
@@ -642,17 +716,20 @@ with left_col:
                 value=st.session_state.sections[i].get("category", ""),
                 key=f"category_{i}",
             )
+
             st.session_state.sections[i]["title"] = st.text_input(
                 "Title",
                 value=st.session_state.sections[i].get("title", ""),
                 key=f"title_{i}",
             )
+
             st.session_state.sections[i]["body"] = st.text_area(
                 "Body",
                 value=st.session_state.sections[i].get("body", ""),
                 height=140,
                 key=f"body_{i}",
             )
+
             st.session_state.sections[i]["highlight"] = st.text_area(
                 "Highlight / Key Message",
                 value=st.session_state.sections[i].get("highlight", ""),
@@ -684,11 +761,13 @@ html_content = render_newsletter_html(
     layout_style=layout_style,
     hero_title=hero_title,
     hero_subtitle=hero_subtitle,
+    hero_image_data_url=hero_image_data_url,
     sections=st.session_state.sections,
 )
 
 with right_col:
     st.subheader("Live Preview")
+
     st.components.v1.html(
         html_preview_component(html_content),
         height=980,
@@ -705,6 +784,7 @@ with right_col:
     with pdf_col:
         try:
             pdf_bytes = html_to_pdf_bytes(html_content)
+
             st.download_button(
                 label="📄 Download PDF for attachment",
                 data=pdf_bytes,
@@ -712,6 +792,7 @@ with right_col:
                 mime="application/pdf",
                 use_container_width=True,
             )
+
         except Exception as e:
             st.error("PDF export failed.")
             st.code(str(e))
@@ -719,6 +800,7 @@ with right_col:
     with jpg_col:
         try:
             jpg_bytes = html_to_jpg_bytes(html_content)
+
             st.download_button(
                 label="🖼️ Download JPG for email body",
                 data=jpg_bytes,
@@ -726,6 +808,7 @@ with right_col:
                 mime="image/jpeg",
                 use_container_width=True,
             )
+
         except Exception as e:
             st.error("JPG export failed.")
             st.code(str(e))
