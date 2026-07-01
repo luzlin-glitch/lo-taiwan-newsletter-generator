@@ -157,9 +157,9 @@ def image_data_url(image):
 
 
 def get_badge_text(section):
-    custom_badge = section.get("badge_label", "").strip()
-    if custom_badge:
-        return custom_badge
+    """Return a simple category-based label.
+    Custom badge input was removed to keep the editor simpler.
+    """
     return DEFAULT_BADGES.get(section.get("category", ""), section.get("category", "Update"))
 
 
@@ -298,7 +298,6 @@ def section_common_header(section, template, theme, newsletter_style):
     return f"""
     <div class="section-badge-row">
         <span class="badge">{badge}</span>
-        <span class="template-tag">{safe_html_text(newsletter_style)} · {template}</span>
     </div>
     <h2 class="section-title">{title}</h2>
     """
@@ -382,10 +381,10 @@ def build_issue_overview(sections, theme):
         badge = safe_html_text(get_badge_text(section))
         title = safe_html_text(section.get("title", ""))
         items += f"""
-        <div class="issue-item issue-style-{newsletter_style_class(section_style)}">
+        <div class="issue-item">
             <div class="issue-number">{index}</div>
             <div class="issue-text">
-                <div class="issue-badge">{badge} · {safe_html_text(section_style)}</div>
+                <div class="issue-badge">{badge}</div>
                 <div class="issue-title">{title}</div>
             </div>
         </div>
@@ -398,7 +397,7 @@ def build_issue_overview(sections, theme):
     <section class="issue-overview">
         <div class="issue-header">
             <h2 class="issue-heading">In This Issue</h2>
-            <div class="issue-subtitle">Each section can use its own newsletter style. Auto style labels are shown for editing reference.</div>
+            <div class="issue-subtitle">A quick guide to this month’s key stories.</div>
         </div>
         <div class="issue-list">
             {items}
@@ -547,17 +546,21 @@ def generate_css(theme):
     .section-card {{ background: {theme['background']}; border: 1px solid {theme['divider']}; border-top: 6px solid {theme['accent']}; border-radius: 18px; padding: 24px 26px; margin-bottom: 24px; page-break-inside: avoid; }}
     .section-badge-row {{ display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 10px; }}
     .badge {{ display: inline-block; background: {theme['accent']}; color: {theme['accent_text']}; border-radius: 999px; padding: 7px 15px; font-size: 10px; font-weight: 950; letter-spacing: 0.6px; text-transform: uppercase; }}
-    .template-tag {{ color: {theme['muted']}; font-size: 9px; font-weight: 900; text-transform: uppercase; letter-spacing: 0.8px; }}
+    .template-tag {{ display: none; }}
     .section-title {{ font-size: 30px; font-weight: 950; line-height: 1.08; letter-spacing: -0.7px; margin: 0 0 15px; }}
     .section-content {{ font-size: 14px; line-height: 1.58; font-weight: 500; margin: 0 0 14px; }}
     .after-image {{ margin-top: 14px; }}
     .gallery-intro {{ margin-bottom: 14px; }}
 
-    .masonry-gallery {{ column-count: 2; column-gap: 14px; margin-top: 14px; }}
-    .image-frame {{ break-inside: avoid; width: 100%; margin: 0 0 14px; border-radius: 12px; overflow: hidden; border: 1px solid {theme['divider']}; background: #ffffff; }}
-    .section-image {{ width: 100%; height: auto; object-fit: contain; display: block; }}
+    .masonry-gallery {{ display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 14px; margin-top: 14px; align-items: start; }}
+    .masonry-gallery .image-wide {{ grid-column: span 2; }}
+    .image-frame {{ width: 100%; margin: 0; border-radius: 12px; overflow: hidden; border: 1px solid {theme['divider']}; background: #ffffff; }}
+    .section-image {{ width: 100%; height: auto; max-height: 420px; object-fit: contain; display: block; margin: 0 auto; }}
+    .masonry-gallery .image-wide .section-image {{ max-height: 280px; }}
     .single-image-wrap .image-frame {{ max-width: 100%; }}
-    .supporting-image-row {{ display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; margin-top: 14px; }}
+    .single-image-wrap .section-image {{ max-height: 520px; }}
+    .supporting-image-row {{ display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; margin-top: 14px; align-items: start; }}
+    .supporting-image-row .image-wide {{ grid-column: span 2; }}
     .supporting-image-row .image-frame {{ margin-bottom: 0; }}
 
     .brief-card {{ background: {theme['soft_background']}; }}
@@ -577,7 +580,8 @@ def generate_css(theme):
         .page {{ padding: 16px; }}
         .style-intro, .section-card.style-field-report .field-report-layout, .section-card.style-magazine-feature.feature-card {{ display: block; }}
         .issue-list {{ grid-template-columns: 1fr; }}
-        .masonry-gallery {{ column-count: 1; }}
+        .masonry-gallery {{ grid-template-columns: 1fr; }}
+        .masonry-gallery .image-wide {{ grid-column: span 1; }}
         .supporting-image-row {{ grid-template-columns: 1fr; }}
         .banner-kicker {{ font-size: 34px; }}
         .banner-title {{ font-size: 20px; }}
@@ -660,8 +664,8 @@ with st.sidebar.expander("Which Newsletter Style should I use?"):
         st.caption(style_info["description"])
 
 st.sidebar.markdown("---")
-st.sidebar.write("Prototype Version 3.0")
-st.sidebar.caption("Section-by-section newsletter styles, masonry images, and no image cropping.")
+st.sidebar.write("Prototype Version 3.1")
+st.sidebar.caption("Section-by-section styles, cleaner reader labels, and non-cropping smart image grids.")
 
 if "sections" not in st.session_state:
     st.session_state.sections = []
@@ -687,12 +691,6 @@ st.header("1. Add Monthly Update")
 
 with st.form(f"update_form_{st.session_state.form_counter}"):
     category = st.selectbox("Category", ["People", "Milestone", "Supplier", "Culture", "Coming Up"])
-    default_badge = DEFAULT_BADGES.get(category, category)
-    badge_label = st.text_input(
-        "Badge Label",
-        value="",
-        placeholder=f"Example: {default_badge}, Big Moves, From the Field, Team Energy",
-    )
     title = st.text_input("Section Title", placeholder="Example: Promotions")
     raw_content = st.text_area("Raw Content", placeholder="Paste or type the original update here...", height=160)
 
@@ -718,7 +716,6 @@ with st.form(f"update_form_{st.session_state.form_counter}"):
             st.session_state.sections.append(
                 {
                     "category": category,
-                    "badge_label": badge_label.strip(),
                     "title": title,
                     "content": raw_content,
                     "newsletter_style": section_newsletter_style,
@@ -743,7 +740,6 @@ else:
             section_style = get_section_style(section)
             template = get_section_template(section, section_style)
             with st.expander(f"{i + 1}. {section['category']} — {section['title']}"):
-                st.caption(f"Badge: {get_badge_text(section)}")
                 st.caption(f"Newsletter Style: {section_style} · Layout: {template}")
                 st.write(section["content"])
                 images = section.get("images", [])
