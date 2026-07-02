@@ -199,9 +199,9 @@ def get_section_template(section, section_style):
     images = section.get("images", [])
     text_len = len(section.get("content", "").strip())
 
-    # Image layout rule:
+    # Important:
     # 1–2 images keep the original side image layout.
-    # 3+ images use the new collage gallery layout.
+    # 3+ images always use the collage gallery layout.
     if len(images) >= 3:
         return "Gallery"
 
@@ -227,6 +227,7 @@ def get_section_template(section, section_style):
 
     if len(images) in [1, 2]:
         return "Side Images"
+
     if text_len <= 130:
         return "Brief"
 
@@ -249,8 +250,9 @@ def generate_images_html(images, layout="gallery"):
 
     image_count = len(images)
 
-    # Keep the original layout for 1–2 images and side-stack sections.
-    if image_count <= 2 or layout == "side-stack":
+    # Only 1–2 images keep the original side-stack layout.
+    # 3+ images always use collage, even if layout="side-stack" is passed in.
+    if image_count <= 2:
         tags = "".join(create_image_figure(image) for image in images)
         return f"""
         <div class="side-image-stack">
@@ -258,8 +260,8 @@ def generate_images_html(images, layout="gallery"):
         </div>
         """
 
-    # New collage layouts for 3–10 images.
-    # If more than 10 images are uploaded, only the first 10 are shown to avoid an overcrowded newsletter block.
+    # Collage layouts for 3–10 images.
+    # If more than 10 images are uploaded, only the first 10 are shown.
     gallery_count = min(image_count, 10)
     tags = "".join(
         create_image_figure(image, index)
@@ -470,10 +472,10 @@ def generate_image_preview_html(images, color_palette):
 
     theme = COLOR_PALETTES[color_palette]
 
-    if len(images) >= 3:
-        images_html = generate_images_html(images, layout="gallery")
-    else:
-        images_html = generate_images_html(images, layout="side-stack")
+    # Use the same image layout logic as the newsletter:
+    # 1–2 images: side-stack
+    # 3+ images: collage
+    images_html = generate_images_html(images, layout="gallery")
 
     preview_css = f"""
     * {{
