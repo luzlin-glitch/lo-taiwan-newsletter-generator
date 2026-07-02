@@ -199,6 +199,12 @@ def get_section_template(section, section_style):
     images = section.get("images", [])
     text_len = len(section.get("content", "").strip())
 
+    # Image layout rule:
+    # 1–2 images keep the original side image layout.
+    # 3+ images use the new collage gallery layout.
+    if len(images) >= 3:
+        return "Gallery"
+
     if section_style == "Corporate Classic":
         if images:
             return "Side Images"
@@ -219,8 +225,6 @@ def get_section_template(section, section_style):
             return "Side Images"
         return "Text"
 
-    if len(images) >= 3:
-        return "Gallery"
     if len(images) in [1, 2]:
         return "Side Images"
     if text_len <= 130:
@@ -229,9 +233,11 @@ def get_section_template(section, section_style):
     return "Text"
 
 
-def create_image_figure(image):
+def create_image_figure(image, index=None):
+    item_class = f" image-item image-item-{index}" if index is not None else ""
+
     return f"""
-    <figure class="image-frame clean-image-frame">
+    <figure class="image-frame clean-image-frame{item_class}">
         <img class="section-image" src="{image_data_url(image)}" alt="">
     </figure>
     """
@@ -241,7 +247,10 @@ def generate_images_html(images, layout="gallery"):
     if not images:
         return ""
 
-    if len(images) <= 2 or layout == "side-stack":
+    image_count = len(images)
+
+    # Keep the original layout for 1–2 images and side-stack sections.
+    if image_count <= 2 or layout == "side-stack":
         tags = "".join(create_image_figure(image) for image in images)
         return f"""
         <div class="side-image-stack">
@@ -249,9 +258,16 @@ def generate_images_html(images, layout="gallery"):
         </div>
         """
 
-    tags = "".join(create_image_figure(image) for image in images)
+    # New collage layouts for 3–10 images.
+    # If more than 10 images are uploaded, only the first 10 are shown to avoid an overcrowded newsletter block.
+    gallery_count = min(image_count, 10)
+    tags = "".join(
+        create_image_figure(image, index)
+        for index, image in enumerate(images[:10], start=1)
+    )
+
     return f"""
-    <div class="compact-gallery image-count-{min(len(images), 8)}">
+    <div class="compact-gallery image-count-{gallery_count}">
         {tags}
     </div>
     """
@@ -677,12 +693,113 @@ def generate_css(theme):
         gap: 14px;
     }}
 
+    .side-image-stack .image-frame {{
+        background: #ffffff;
+    }}
+
+    .side-image-stack .section-image {{
+        width: 100%;
+        height: auto;
+        object-fit: contain;
+    }}
+
     .compact-gallery {{
         display: grid;
-        grid-template-columns: repeat(2, minmax(0, 1fr));
-        gap: 14px;
+        gap: 9px;
         margin-top: 14px;
-        align-items: start;
+        width: 100%;
+        align-items: stretch;
+    }}
+
+    .compact-gallery .image-frame {{
+        height: 100%;
+        min-height: 0;
+        background: #ffffff;
+    }}
+
+    .compact-gallery .section-image {{
+        width: 100%;
+        height: 100%;
+        object-fit: cover;
+    }}
+
+    .compact-gallery.image-count-3 {{
+        grid-template-columns: 2fr 1fr;
+        grid-template-rows: repeat(2, 145px);
+    }}
+
+    .compact-gallery.image-count-3 .image-item-1 {{
+        grid-row: span 2;
+    }}
+
+    .compact-gallery.image-count-4 {{
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        grid-template-rows: repeat(2, 138px);
+    }}
+
+    .compact-gallery.image-count-5 {{
+        grid-template-columns: repeat(4, minmax(0, 1fr));
+        grid-template-rows: repeat(2, 124px);
+    }}
+
+    .compact-gallery.image-count-5 .image-item-1 {{
+        grid-column: span 2;
+        grid-row: span 2;
+    }}
+
+    .compact-gallery.image-count-6 {{
+        grid-template-columns: repeat(4, minmax(0, 1fr));
+        grid-template-rows: repeat(2, 118px);
+    }}
+
+    .compact-gallery.image-count-6 .image-item-1 {{
+        grid-column: span 2;
+    }}
+
+    .compact-gallery.image-count-6 .image-item-6 {{
+        grid-column: span 2;
+    }}
+
+    .compact-gallery.image-count-7 {{
+        grid-template-columns: repeat(4, minmax(0, 1fr));
+        grid-template-rows: repeat(2, 112px);
+    }}
+
+    .compact-gallery.image-count-7 .image-item-1 {{
+        grid-column: span 2;
+    }}
+
+    .compact-gallery.image-count-8 {{
+        grid-template-columns: repeat(4, minmax(0, 1fr));
+        grid-template-rows: repeat(3, 92px);
+    }}
+
+    .compact-gallery.image-count-8 .image-item-1 {{
+        grid-column: span 2;
+        grid-row: span 2;
+    }}
+
+    .compact-gallery.image-count-8 .image-item-8 {{
+        grid-column: span 2;
+    }}
+
+    .compact-gallery.image-count-9 {{
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+        grid-template-rows: repeat(3, 104px);
+    }}
+
+    .compact-gallery.image-count-10 {{
+        grid-template-columns: repeat(5, minmax(0, 1fr));
+        grid-template-rows: repeat(3, 86px);
+    }}
+
+    .compact-gallery.image-count-10 .image-item-1 {{
+        grid-column: span 2;
+        grid-row: span 2;
+    }}
+
+    .compact-gallery.image-count-10 .image-item-10 {{
+        grid-column: span 2;
     }}
 
     .image-frame {{
@@ -708,18 +825,6 @@ def generate_css(theme):
         position: relative;
         z-index: 1;
         background: #ffffff;
-    }}
-
-    .side-image-stack .image-frame,
-    .compact-gallery .image-frame {{
-        background: #ffffff;
-    }}
-
-    .side-image-stack .section-image,
-    .compact-gallery .section-image {{
-        width: 100%;
-        height: auto;
-        object-fit: contain;
     }}
 
     .style-corporate-classic {{
@@ -807,7 +912,17 @@ def generate_css(theme):
         }}
 
         .compact-gallery {{
-            grid-template-columns: 1fr;
+            grid-template-columns: 1fr !important;
+            grid-template-rows: none !important;
+        }}
+
+        .compact-gallery .image-item {{
+            grid-column: auto !important;
+            grid-row: auto !important;
+        }}
+
+        .compact-gallery .image-frame {{
+            aspect-ratio: 16 / 10;
         }}
 
         .banner-kicker {{
