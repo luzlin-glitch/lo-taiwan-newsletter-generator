@@ -252,22 +252,26 @@ def get_badge_css(theme_style):
 def generate_images_html(images, layout="grid"):
     if not images:
         return ""
+
+    image_count = len(images)
+
     image_tags = []
-    for image in images:
+    for index, image in enumerate(images, start=1):
         image_tags.append(
             f"""
-            <figure class="image-frame">
+            <figure class="image-frame image-item image-item-{index}">
                 <img class="section-image" src="{build_image_src(image)}" alt="">
             </figure>
             """
         )
+
     if layout == "feature":
         first_image = image_tags[0]
         remaining_images = image_tags[1:]
         remaining_html = ""
         if remaining_images:
             remaining_html = f"""
-            <div class="image-grid">
+            <div class="image-grid image-grid-2">
                 {''.join(remaining_images)}
             </div>
             """
@@ -277,14 +281,35 @@ def generate_images_html(images, layout="grid"):
         </div>
         {remaining_html}
         """
+
     if layout == "single-column":
         return f"""
         <div class="image-column">
             {''.join(image_tags)}
         </div>
         """
+
+    if image_count == 2:
+        layout_class = "image-grid image-grid-2"
+    elif image_count == 3:
+        layout_class = "image-collage image-collage-3"
+    elif image_count == 4:
+        layout_class = "image-collage image-collage-4"
+    elif image_count == 5:
+        layout_class = "image-collage image-collage-5"
+    elif image_count == 6:
+        layout_class = "image-collage image-collage-6"
+    elif image_count == 7:
+        layout_class = "image-collage image-collage-7"
+    elif image_count == 8:
+        layout_class = "image-collage image-collage-8"
+    elif image_count == 9:
+        layout_class = "image-collage image-collage-9"
+    else:
+        layout_class = "image-collage image-collage-10"
+
     return f"""
-    <div class="image-grid">
+    <div class="{layout_class}">
         {''.join(image_tags)}
     </div>
     """
@@ -452,10 +477,40 @@ def generate_newsletter_html(month, main_theme, editor, volume, issue, banner_mo
             .section-content {{ font-size: 14px; line-height: 1.55; font-weight: 500; margin: 0 0 16px 0; }}
             .brief-content {{ margin-top: 26px; font-size: 13px; }}
             .section-content.after-image {{ margin-top: 14px; }}
-            .image-grid {{ display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 14px; margin-top: 12px; align-items: start; }}
-            .gallery-card .image-grid {{ grid-template-columns: repeat(2, minmax(0, 1fr)); }}
-            .gallery-card .image-frame {{ aspect-ratio: 16 / 10; }}
-            .gallery-card .section-image {{ width: 100%; height: 100%; object-fit: cover; }}
+
+            .image-grid {{ display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; margin-top: 12px; align-items: start; }}
+            .image-grid-2 .image-frame {{ aspect-ratio: 16 / 10; }}
+            .image-grid-2 .section-image {{ width: 100%; height: 100%; object-fit: cover; }}
+
+            .image-collage {{ display: grid; gap: 8px; margin-top: 14px; width: 100%; }}
+            .image-collage .image-frame {{ height: 100%; aspect-ratio: auto; }}
+            .image-collage .section-image {{ width: 100%; height: 100%; object-fit: cover; }}
+
+            .image-collage-3 {{ grid-template-columns: 2fr 1fr; grid-template-rows: repeat(2, 128px); }}
+            .image-collage-3 .image-item-1 {{ grid-row: span 2; }}
+
+            .image-collage-4 {{ grid-template-columns: repeat(2, minmax(0, 1fr)); grid-template-rows: repeat(2, 126px); }}
+
+            .image-collage-5 {{ grid-template-columns: repeat(4, minmax(0, 1fr)); grid-template-rows: repeat(2, 118px); }}
+            .image-collage-5 .image-item-1 {{ grid-column: span 2; grid-row: span 2; }}
+
+            .image-collage-6 {{ grid-template-columns: repeat(4, minmax(0, 1fr)); grid-template-rows: repeat(2, 112px); }}
+            .image-collage-6 .image-item-1 {{ grid-column: span 2; }}
+            .image-collage-6 .image-item-6 {{ grid-column: span 2; }}
+
+            .image-collage-7 {{ grid-template-columns: repeat(4, minmax(0, 1fr)); grid-template-rows: repeat(2, 108px); }}
+            .image-collage-7 .image-item-1 {{ grid-column: span 2; }}
+
+            .image-collage-8 {{ grid-template-columns: repeat(4, minmax(0, 1fr)); grid-template-rows: repeat(3, 88px); }}
+            .image-collage-8 .image-item-1 {{ grid-column: span 2; grid-row: span 2; }}
+            .image-collage-8 .image-item-8 {{ grid-column: span 2; }}
+
+            .image-collage-9 {{ grid-template-columns: repeat(3, minmax(0, 1fr)); grid-template-rows: repeat(3, 96px); }}
+
+            .image-collage-10 {{ grid-template-columns: repeat(5, minmax(0, 1fr)); grid-template-rows: repeat(3, 82px); }}
+            .image-collage-10 .image-item-1 {{ grid-column: span 2; grid-row: span 2; }}
+            .image-collage-10 .image-item-10 {{ grid-column: span 2; }}
+
             .feature-image-wrap {{ margin: 8px 0 14px 0; }}
             .image-frame {{ width: 100%; margin: 0; border-radius: 12px; overflow: hidden; border: 1px solid {theme_style["divider"]}; background: transparent; }}
             .section-image {{ width: 100%; height: auto; display: block; }}
@@ -465,7 +520,7 @@ def generate_newsletter_html(month, main_theme, editor, volume, issue, banner_mo
             .footer {{ color: #666666; font-size: 9px; line-height: 1.4; margin-top: 22px; border-top: 1px solid {theme_style["divider"]}; padding-top: 12px; }}
             @media screen {{ body {{ padding: 16px; }} .page {{ max-width: 820px; }} }}
             @media print {{ html, body {{ width: 100%; background: #ffffff; }} .page {{ max-width: none; padding: 18px 28px 22px 28px; }} }}
-            @media screen and (max-width: 720px) {{ .page {{ padding: 16px; }} .top-banner {{ height: 150px; }} .banner-title {{ font-size: 34px; }} .banner-month {{ font-size: 19px; }} .issue-list {{ grid-template-columns: 1fr; }} .image-grid {{ grid-template-columns: 1fr; }} .field-report-layout, .brief-card {{ grid-template-columns: 1fr; }} .brief-content {{ margin-top: 0; }} }}
+            @media screen and (max-width: 720px) {{ .page {{ padding: 16px; }} .top-banner {{ height: 150px; }} .banner-title {{ font-size: 34px; }} .banner-month {{ font-size: 19px; }} .issue-list {{ grid-template-columns: 1fr; }} .image-grid {{ grid-template-columns: 1fr; }} .image-collage {{ grid-template-columns: 1fr !important; grid-template-rows: none !important; }} .image-collage .image-item {{ grid-column: auto !important; grid-row: auto !important; }} .image-collage .image-frame {{ aspect-ratio: 16 / 10; }} .field-report-layout, .brief-card {{ grid-template-columns: 1fr; }} .brief-content {{ margin-top: 0; }} }}
         </style>
     </head>
     <body>
@@ -488,7 +543,7 @@ def generate_newsletter_html(month, main_theme, editor, volume, issue, banner_mo
 
 def html_to_pdf_bytes(newsletter_html):
     with sync_playwright() as p:
-        browser = p.chromium.launch(headless=True, args=["--no-sandbox", "--disable-dev-shm-usage"])
+        browser = p.chromium.launch(headless=True, args=["no-sandbox", "--disable-dev-shm-usage"])
         page = browser.new_page(viewport={"width": 794, "height": 1123}, device_scale_factor=1)
         page.set_content(newsletter_html, wait_until="networkidle")
         document_height = page.evaluate("""
@@ -554,7 +609,7 @@ theme = THEMES[visual_theme]
 st.sidebar.caption(f"Theme mood: {theme['description']}")
 st.sidebar.markdown("---")
 st.sidebar.write("Prototype Version 2.6")
-st.sidebar.caption("Banner-led layout. Auto templates, equal gallery grid, PDF/JPG export.")
+st.sidebar.caption("Banner-led layout. Auto templates, collage gallery, PDF/JPG export.")
 
 
 # =========================================================
