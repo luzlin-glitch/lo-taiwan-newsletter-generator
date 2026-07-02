@@ -464,6 +464,190 @@ def generate_newsletter_html(
     """
 
 
+def generate_image_preview_html(images, color_palette):
+    if not images:
+        return ""
+
+    theme = COLOR_PALETTES[color_palette]
+
+    if len(images) >= 3:
+        images_html = generate_images_html(images, layout="gallery")
+    else:
+        images_html = generate_images_html(images, layout="side-stack")
+
+    preview_css = f"""
+    * {{
+        box-sizing: border-box;
+    }}
+
+    html, body {{
+        margin: 0;
+        padding: 0;
+        background: transparent;
+        font-family: Arial, Helvetica, sans-serif;
+    }}
+
+    .preview-wrap {{
+        width: 100%;
+        padding: 2px 0 0;
+    }}
+
+    .side-image-stack {{
+        display: flex;
+        flex-direction: column;
+        gap: 10px;
+    }}
+
+    .side-image-stack .image-frame {{
+        background: #ffffff;
+    }}
+
+    .side-image-stack .section-image {{
+        width: 100%;
+        height: auto;
+        object-fit: contain;
+    }}
+
+    .compact-gallery {{
+        display: grid;
+        gap: 7px;
+        width: 100%;
+        align-items: stretch;
+    }}
+
+    .compact-gallery .image-frame {{
+        height: 100%;
+        min-height: 0;
+        background: #ffffff;
+    }}
+
+    .compact-gallery .section-image {{
+        width: 100%;
+        height: 100%;
+        object-fit: cover;
+    }}
+
+    .compact-gallery.image-count-3 {{
+        grid-template-columns: 2fr 1fr;
+        grid-template-rows: repeat(2, 82px);
+    }}
+
+    .compact-gallery.image-count-3 .image-item-1 {{
+        grid-row: span 2;
+    }}
+
+    .compact-gallery.image-count-4 {{
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        grid-template-rows: repeat(2, 82px);
+    }}
+
+    .compact-gallery.image-count-5 {{
+        grid-template-columns: repeat(4, minmax(0, 1fr));
+        grid-template-rows: repeat(2, 76px);
+    }}
+
+    .compact-gallery.image-count-5 .image-item-1 {{
+        grid-column: span 2;
+        grid-row: span 2;
+    }}
+
+    .compact-gallery.image-count-6 {{
+        grid-template-columns: repeat(4, minmax(0, 1fr));
+        grid-template-rows: repeat(2, 72px);
+    }}
+
+    .compact-gallery.image-count-6 .image-item-1 {{
+        grid-column: span 2;
+    }}
+
+    .compact-gallery.image-count-6 .image-item-6 {{
+        grid-column: span 2;
+    }}
+
+    .compact-gallery.image-count-7 {{
+        grid-template-columns: repeat(4, minmax(0, 1fr));
+        grid-template-rows: repeat(2, 68px);
+    }}
+
+    .compact-gallery.image-count-7 .image-item-1 {{
+        grid-column: span 2;
+    }}
+
+    .compact-gallery.image-count-8 {{
+        grid-template-columns: repeat(4, minmax(0, 1fr));
+        grid-template-rows: repeat(3, 56px);
+    }}
+
+    .compact-gallery.image-count-8 .image-item-1 {{
+        grid-column: span 2;
+        grid-row: span 2;
+    }}
+
+    .compact-gallery.image-count-8 .image-item-8 {{
+        grid-column: span 2;
+    }}
+
+    .compact-gallery.image-count-9 {{
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+        grid-template-rows: repeat(3, 64px);
+    }}
+
+    .compact-gallery.image-count-10 {{
+        grid-template-columns: repeat(5, minmax(0, 1fr));
+        grid-template-rows: repeat(3, 54px);
+    }}
+
+    .compact-gallery.image-count-10 .image-item-1 {{
+        grid-column: span 2;
+        grid-row: span 2;
+    }}
+
+    .compact-gallery.image-count-10 .image-item-10 {{
+        grid-column: span 2;
+    }}
+
+    .image-frame {{
+        width: 100%;
+        margin: 0;
+        border-radius: 9px;
+        overflow: hidden;
+        border: 1px solid {theme["divider"]};
+        background: #ffffff;
+        position: relative;
+    }}
+
+    .image-frame::before {{
+        display: none !important;
+        content: none !important;
+    }}
+
+    .section-image {{
+        width: 100%;
+        height: auto;
+        display: block;
+        object-fit: contain;
+        position: relative;
+        z-index: 1;
+        background: #ffffff;
+    }}
+    """
+
+    return f"""
+    <!DOCTYPE html>
+    <html>
+    <head>
+        <meta charset="UTF-8">
+        <style>{preview_css}</style>
+    </head>
+    <body>
+        <div class="preview-wrap">
+            {images_html}
+        </div>
+    </body>
+    </html>
+    """
+
+
 # -----------------------------
 # CSS
 # -----------------------------
@@ -1177,6 +1361,22 @@ else:
 
                 images = section.get("images", [])
                 st.caption(f"Images: {len(images)} uploaded" if images else "Images: None")
+
+                if images:
+                    preview_height = 190
+
+                    if len(images) <= 2:
+                        preview_height = 260
+                    elif len(images) in [5, 6, 7]:
+                        preview_height = 175
+                    elif len(images) in [8, 9, 10]:
+                        preview_height = 210
+
+                    components.html(
+                        generate_image_preview_html(images, color_palette),
+                        height=preview_height,
+                        scrolling=False,
+                    )
 
                 if st.button(f"Delete Section {i + 1}", key=f"delete_{i}"):
                     st.session_state.sections.pop(i)
